@@ -1,6 +1,6 @@
 //! os/src/main.rs
 //! The main source code
-
+#![feature(panic_info_message)] //Enable feature `message()` in panic_info
 #![no_std]  //Delete std-lib, use rust-core-lib
 #![no_main] //Remove main() func
 
@@ -11,15 +11,22 @@ use crate::rust_sbi::shutdown;
 mod lang_items;
 mod rust_sbi;
 mod console;
+mod kernel_log;
 
 global_asm!(include_str!("entry.asm"));
 
 #[no_mangle]
 pub fn rust_main() -> ! {
     init_bss();
-    println!("Hello, world!");
+    println!("Hello");
+    info!("Hello");
+    debug!("Hello");
+    error!("Hello");
+    warn!("Hello");
+    trace!("Hello");
+    panic!("Panic");
     shutdown();
-    loop {}
+    //loop {}
 }
 
 fn init_bss() {

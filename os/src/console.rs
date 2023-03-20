@@ -28,7 +28,7 @@ pub fn print(args: fmt::Arguments) {
 
 /// print something on the console
 #[macro_export]
-pub macro_rules! print {
+macro_rules! print {
     ($fmt:literal $(, $($arg:tt)+)?) => {
         $crate::console::print(format_args!($fmt $(, $($arg)+)?));
     }
@@ -36,7 +36,7 @@ pub macro_rules! print {
 
 /// print something on the console with a new line (\n)
 #[macro_export]
-pub macro_rules! println {
+macro_rules! println {
     ($fmt:literal $(, $($arg:tt)+)?) => {
         $crate::console::print(format_args!(concat!($fmt, "\n") $(, $($arg)+)?));
     }

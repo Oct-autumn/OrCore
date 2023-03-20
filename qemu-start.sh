@@ -9,8 +9,9 @@ for i in "$@"; do
     gdb_flag=true
     ;;
   *)
-    printf "--wait-gdb  Start QEMU and wait for GDB request.\n"
-    return 1
+    echo "args:"
+    echo "    --wait-gdb  Start QEMU and wait for GDB request."
+    exit 1
     ;;
   esac
 done
@@ -18,7 +19,7 @@ done
 # Check running path
 if [ ! -e "./Cargo.toml" ]; then
   echo "[FATAL] Please run under the Cargo dir."
-  return 1
+  exit 1
 fi
 
 # Build os kernel
@@ -28,7 +29,7 @@ cargo build --release
 result=$?
 if [ $result != 0 ]; then
   echo "[FATAL] Failed to build kernel. Return with code $result"
-  return 2
+  exit 2
 fi
 
 # Make os kernel image
@@ -38,7 +39,7 @@ rust-objcopy --strip-all target/riscv64gc-unknown-none-elf/release/os -O binary 
 result=$?
 if [ $result != 0 ]; then
   echo "[FATAL] Failed to make kernel image. Return with code $result"
-  return 2
+  exit 2
 fi
 
 # Start QEMU and load kernel image
