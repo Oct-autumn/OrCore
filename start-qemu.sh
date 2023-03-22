@@ -17,9 +17,9 @@ for i in "$@"; do
 done
 
 # Check running path
-if [ ! -e "./Cargo.toml" ]; then
-  echo "[FATAL] Please run under the Cargo dir."
-  exit 1
+if [ ! -e "./scripts" ]; then
+  echo "[ERROR] Please run under the root dir."
+  return 1
 fi
 
 # Build os kernel
