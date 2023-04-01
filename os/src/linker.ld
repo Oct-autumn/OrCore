@@ -33,14 +33,16 @@ SECTIONS
     . = ALIGN(4K);
     edata = .;
     .bss : {
-        *(.bss.stack)       /* FuncStack is here */
-        sbss = .;
+        *(.bss.kernel_stack)    /* KernelStack is here */
+        *(.bss.user_stack)      /* UserStack is here */
+        *(.bss.stack)           /* FuncStack is here */
+        start_bss = .;
         *(.bss .bss.*)
         *(.sbss .sbss.*)
     }
 
     . = ALIGN(4K);
-    ebss = .;
+    end_bss = .;
     ekernel = .;
 
     /DISCARD/ : {

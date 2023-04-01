@@ -1,9 +1,9 @@
-# os/.cargo/config
+# user/.cargo/config
 [build]
 target = "riscv64gc-unknown-none-elf"
 
 [target.riscv64gc-unknown-none-elf]
 rustflags = [
-    "-Clink-arg=-Tsrc/linker.ld",
+    "-Clink-arg=-Tsrc/linker.ld", # 当使用半系统模拟时，注释掉
     "-Cforce-frame-pointers=yes"
 ]
