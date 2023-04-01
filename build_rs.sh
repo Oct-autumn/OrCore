@@ -7,7 +7,6 @@ USER_LIB_SOURCE_PATH="./user"
 os_build_flag=true
 user_build_flag=true
 os_log_level=0
-ulib_log_level=0
 
 print_help_info() {
   echo "Build the rust code."
@@ -19,8 +18,6 @@ print_help_info() {
   echo "      --build-user-only               Build the user lib and programs only."
   echo "      --max-kernel-log-level-[LEVEL]  Build the os kernel with log level [ERROR | WARN | INFO | DEBUG | TRACE]"
   echo "      --NO-kernel-log                 Build the os kernel with no log"
-  echo "      --max-ulib-log-level-[LEVEL]    Build the user lib and programs with log level [ERROR | WARN | INFO | DEBUG | TRACE]"
-  echo "      --NO-ulib-log                   Build the user lib and programs with no log"
 }
 
 for i in "$@"; do
@@ -49,24 +46,6 @@ for i in "$@"; do
   "--max-kernel-log-level-TRACE")
     os_log_level=5
     ;;
-  "--NO-ulib-log")
-    ulib_log_level=0
-    ;;
-  "--max-ulib-log-level-ERROR")
-    ulib_log_level=1
-    ;;
-  "--max-ulib-log-level-WARN")
-    ulib_log_level=2
-    ;;
-  "--max-ulib-log-level-INFO")
-    ulib_log_level=3
-    ;;
-  "--max-ulib-log-level-DEBUG")
-    ulib_log_level=4
-    ;;
-  "--max-ulib-log-level-TRACE")
-    ulib_log_level=5
-    ;;
   *)
     print_help_info
     exit 1
@@ -92,32 +71,7 @@ if [ $user_build_flag == true ]; then
 
   echo "[INFO] Building and making image for ULP"
 
-  ulib_log_level
-
-  case $os_log_level in
-  0)
-    unset LOG
-    ;;
-  1)
-    export LOG="ERROR"
-    ;;
-  2)
-    export LOG="WARN"
-    ;;
-  3)
-    export LOG="INFO"
-    ;;
-  4)
-    export LOG="DEBUG"
-    ;;
-  5)
-    export LOG="TRACE"
-    ;;
-  esac
-
   make build
-
-  unset LOG
 
   result=$?
   if [ $result != 0 ]; then

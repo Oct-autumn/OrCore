@@ -8,7 +8,7 @@ version = "0.7.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc936419f96fa211c1b9166887b38e5e40b19958e5b895be7c1f93adec7071ac"
 dependencies = [
-    "memchr",
+ "memchr",
 ]
 
 [[package]]
@@ -17,7 +17,7 @@ version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5deb64efa5bd81e31fcd1938615a6d98c82eafcbcd787162b6f63b91d6bac5b3"
 dependencies = [
-    "rustc_version",
+ "rustc_version",
 ]
 
 [[package]]
@@ -44,7 +44,7 @@ version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 dependencies = [
-    "spin",
+ "spin",
 ]
 
 [[package]]
@@ -53,7 +53,7 @@ version = "0.4.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abb12e687cfb44aa40f41fc3978ef76448f9b6038cad6aef4259d3c095a2382e"
 dependencies = [
-    "cfg-if",
+ "cfg-if",
 ]
 
 [[package]]
@@ -66,9 +66,9 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 name = "os"
 version = "0.2.0"
 dependencies = [
-    "lazy_static",
-    "log",
-    "riscv",
+ "lazy_static",
+ "log",
+ "riscv",
 ]
 
 [[package]]
@@ -77,9 +77,9 @@ version = "1.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b1f693b24f6ac912f4893ef08244d70b6067480d2f1a46e950c9691e6749d1d"
 dependencies = [
-    "aho-corasick",
-    "memchr",
-    "regex-syntax",
+ "aho-corasick",
+ "memchr",
+ "regex-syntax",
 ]
 
 [[package]]
@@ -93,11 +93,11 @@ name = "riscv"
 version = "0.6.0"
 source = "git+https://github.com/rcore-os/riscv#11d43cf7cccb3b62a3caaf3e07a1db7449588f9a"
 dependencies = [
-    "bare-metal",
-    "bit_field",
-    "bitflags",
-    "log",
-    "riscv-target",
+ "bare-metal",
+ "bit_field",
+ "bitflags",
+ "log",
+ "riscv-target",
 ]
 
 [[package]]
@@ -106,8 +106,8 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88aa938cda42a0cf62a20cfe8d139ff1af20c2e681212b5b34adb5a58333f222"
 dependencies = [
-    "lazy_static",
-    "regex",
+ "lazy_static",
+ "regex",
 ]
 
 [[package]]
@@ -116,7 +116,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 dependencies = [
-    "semver",
+ "semver",
 ]
 
 [[package]]
@@ -125,7 +125,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
 dependencies = [
-    "semver-parser",
+ "semver-parser",
 ]
 
 [[package]]
