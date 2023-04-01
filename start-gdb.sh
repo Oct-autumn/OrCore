@@ -1,7 +1,7 @@
 Route_To_GDB="$HOME/rv64toolchain/bin/riscv64-unknown-elf-gdb"
 
 # Check running path
-if [ ! -e "./scripts" ]; then
+if [ ! -e "./bootloader" ]; then
   echo "[ERROR] Please run under the root dir."
   return 1
 fi

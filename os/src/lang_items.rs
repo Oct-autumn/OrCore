@@ -8,7 +8,7 @@
 use core::panic::PanicInfo;
 
 use crate::println;
-use crate::rust_sbi::shutdown;
+use crate::sbi_call::shutdown;
 
 /// KernelPanic func
 #[panic_handler]

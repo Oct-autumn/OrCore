@@ -8,15 +8,15 @@
 
 use core::fmt::{self, Write};
 
-use crate::rust_sbi::console_putchar;
+use crate::sbi_call::console_putchar;
 
 struct Stdout;  // Unit-like structs
 
 impl Write for Stdout {
     // impl of Write::write_str for Stdout
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        for c in s.chars() {
-            console_putchar(c as usize);
+        for b in s.bytes() {
+            console_putchar(b as usize);
         }
         Ok(())
     }

@@ -3,6 +3,9 @@
 # Check running param
 gdb_flag=false
 
+KERNEL_SOURCE_PATH="./os"
+USER_LIB_SOURCE_PATH="./user"
+
 for i in "$@"; do
   case $i in
   "--wait-gdb")
@@ -16,32 +19,6 @@ for i in "$@"; do
   esac
 done
 
-# Check running path
-if [ ! -e "./scripts" ]; then
-  echo "[ERROR] Please run under the root dir."
-  return 1
-fi
-
-# Build os kernel
-echo "[INFO] Building or-os kernel"
-cargo build --release
-
-result=$?
-if [ $result != 0 ]; then
-  echo "[FATAL] Failed to build kernel. Return with code $result"
-  exit 2
-fi
-
-# Make os kernel image
-echo "[INFO] Making kernel image"
-rust-objcopy --strip-all target/riscv64gc-unknown-none-elf/release/os -O binary target/riscv64gc-unknown-none-elf/release/os.bin
-
-result=$?
-if [ $result != 0 ]; then
-  echo "[FATAL] Failed to make kernel image. Return with code $result"
-  exit 2
-fi
-
 # Start QEMU and load kernel image
 echo "[INFO] Starting QEMU"
 if [ $gdb_flag == true ]; then
@@ -49,13 +26,13 @@ if [ $gdb_flag == true ]; then
   qemu-system-riscv64 \
     -machine virt \
     -nographic \
-    -bios ../bootloader/rustsbi-qemu.bin \
-    -device loader,file=target/riscv64gc-unknown-none-elf/release/os.bin,addr=0x80200000 \
+    -bios ./bootloader/rustsbi-qemu.bin \
+    -device loader,file='os/target/riscv64gc-unknown-none-elf/release/os.bin',addr=0x80200000 \
     -s -S
 elif [ $gdb_flag == false ]; then
   qemu-system-riscv64 \
     -machine virt \
     -nographic \
-    -bios ../bootloader/rustsbi-qemu.bin \
-    -device loader,file=target/riscv64gc-unknown-none-elf/release/os.bin,addr=0x80200000
+    -bios ./bootloader/rustsbi-qemu.bin \
+    -device loader,file='os/target/riscv64gc-unknown-none-elf/release/os.bin',addr=0x80200000
 fi

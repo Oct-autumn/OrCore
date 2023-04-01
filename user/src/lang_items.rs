@@ -4,10 +4,10 @@
 /* panic()  Func   handle the KernelPanic
  */
 
-
 use core::panic::PanicInfo;
 
 use crate::println;
+use crate::sys_call::sys_exit;
 
 /// KernelPanic func
 #[panic_handler]

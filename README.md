@@ -22,7 +22,7 @@
 ./build_rs.sh
 ~~~
 
-也可使用`--build-os-only` `--build-user-only`等选项指定编译目标
+也可使用`--build-os-only` `--build-user-only`等选项指定编译目标和功能
 
 要启动QEMU模拟器并加载对应的OS Kernel镜像，请运行以下指令：
 
@@ -37,3 +37,26 @@
 # 新建命令行窗口，运行以下指令
 ./start-gdb.sh
 ~~~
+
+## 注意事项
+
+1. user部分的应用程序在半系统模式下试运行时，需要按照以下代码块中的指引注释掉两行代码，否则将导致程序在半系统中无法正常运行。
+    ```config
+    # user/.cargo/config
+    [target.riscv64gc-unknown-none-elf]
+    rustflags = [
+        "-Clink-arg=-Tsrc/linker.ld",     # 当使用半系统模拟时，注释掉
+        "-Cforce-frame-pointers=yes"
+    ]
+    ```
+    ```rust
+    // user/src/lib.rs
+    //...
+    pub extern "C" fn _start() -> ! {
+        //...
+        clear_bss();  //当使用半系统模拟时，注释掉
+        //...
+    }
+    //...
+    ```
+   

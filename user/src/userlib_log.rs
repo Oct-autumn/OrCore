@@ -30,7 +30,7 @@ impl Log for SimpleLogger {
             Level::Trace => 90, // BrightBlack
         };
         println!(
-            "\u{1B}[{}m[KERNEL | {:>5}] {}\u{1B}[0m",
+            "\u{1B}[{}m[U-LIB  | {:>5}] {}\u{1B}[0m",
             color,
             record.level(),
             record.args(),
@@ -50,5 +50,4 @@ pub fn init() {
         Some("TRACE") => LevelFilter::Trace,
         _ => LevelFilter::Off,
     });
-    //log::set_max_level(LevelFilter::Trace)
 }
