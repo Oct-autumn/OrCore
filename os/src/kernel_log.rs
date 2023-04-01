@@ -1,4 +1,4 @@
-//! os/src/kernel_log.rs <br>
+//! os/src/KernelLog <br>
 //! declare of kernel_log output
 
 /* info!    Marco   print kernel log as INFO level
@@ -8,42 +8,47 @@
  * trace!   Marco   print kernel log as TRACE level
  */
 
-/// print something on the console with log level INFO
-#[macro_export]
-macro_rules! info {
-    ($fmt:literal $(, $($arg:tt)+)?) => {
-        $crate::console::print(format_args!(concat!("\x1b[34m[Kernel | INFO] \t", $fmt, "\x1b[0m\n") $(, $($arg)+)?));
+use log::{self, Level, LevelFilter, Log, Metadata, Record};
+
+use crate::println;
+
+struct SimpleLogger;
+
+impl Log for SimpleLogger {
+    fn enabled(&self, _metadata: &Metadata) -> bool {
+        true
     }
+    fn log(&self, record: &Record) {
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+        let color = match record.level() {
+            Level::Error => 31, // Red
+            Level::Warn => 93,  // BrightYellow
+            Level::Info => 34,  // Blue
+            Level::Debug => 32, // Green
+            Level::Trace => 90, // BrightBlack
+        };
+        println!(
+            "\u{1B}[{}m[KERNEL | {:>5}] {}\u{1B}[0m",
+            color,
+            record.level(),
+            record.args(),
+        );
+    }
+    fn flush(&self) {}
 }
 
-/// print something on the console with log level ERROR
-#[macro_export]
-macro_rules! error {
-    ($fmt:literal $(, $($arg:tt)+)?) => {
-        $crate::console::print(format_args!(concat!("\x1b[31m[Kernel | ERROR]\t", $fmt, "\x1b[0m\n") $(, $($arg)+)?));
-    }
-}
-
-/// print something on the console with log level WARN
-#[macro_export]
-macro_rules! warn {
-    ($fmt:literal $(, $($arg:tt)+)?) => {
-        $crate::console::print(format_args!(concat!("\x1b[93m[Kernel | WARN] \t", $fmt, "\x1b[0m\n") $(, $($arg)+)?));
-    }
-}
-
-/// print something on the console with log level DEBUG
-#[macro_export]
-macro_rules! debug {
-    ($fmt:literal $(, $($arg:tt)+)?) => {
-        $crate::console::print(format_args!(concat!("\x1b[32m[Kernel | DEBUG]\t", $fmt, "\x1b[0m\n") $(, $($arg)+)?));
-    }
-}
-
-/// print something on the console with log level TRACE
-#[macro_export]
-macro_rules! trace {
-    ($fmt:literal $(, $($arg:tt)+)?) => {
-        $crate::console::print(format_args!(concat!("\x1b[90m[Kernel | TRACE]\t", $fmt, "\x1b[0m\n") $(, $($arg)+)?));
-    }
+pub fn init() {
+    static LOGGER: SimpleLogger = SimpleLogger;
+    log::set_logger(&LOGGER).unwrap();
+    log::set_max_level(match option_env!("LOG") {
+        Some("ERROR") => LevelFilter::Error,
+        Some("WARN") => LevelFilter::Warn,
+        Some("INFO") => LevelFilter::Info,
+        Some("DEBUG") => LevelFilter::Debug,
+        Some("TRACE") => LevelFilter::Trace,
+        _ => LevelFilter::Off,
+    });
+    //log::set_max_level(LevelFilter::Trace)
 }

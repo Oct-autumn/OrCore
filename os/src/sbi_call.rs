@@ -1,4 +1,4 @@
-//! os/src/rust_sbi.rs
+//! os/src/sbi_call.rs
 //! The rust_sbi service impl
 
 /* sbi_call()          Func    call sbi service
@@ -9,7 +9,6 @@
 use core::arch::asm;
 
 #[allow(unused)]
-// legacy extensions: ignore fid
 const SBI_SET_TIMER: usize = 0;
 const SBI_CONSOLE_PUTCHAR: usize = 1;
 const SBI_CONSOLE_GETCHAR: usize = 2;
