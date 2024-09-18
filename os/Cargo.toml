@@ -6,9 +6,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-log = "0.4.17"
-lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
+log = "0.4.22"
+lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
 riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
+k210-pac = { git = "https://github.com/wyfcyx/k210-pac" }
+k210-hal = { git = "https://github.com/wyfcyx/k210-hal" }
+k210-soc = { git = "https://github.com/wyfcyx/k210-soc" }
 
 [profile.release]
 debug = true
+
+[features]
+board_qemu = []
+board_k210 = []

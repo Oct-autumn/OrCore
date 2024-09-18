@@ -4,7 +4,6 @@
 /* panic()  Func   handle the KernelPanic
  */
 
-
 use core::panic::PanicInfo;
 
 use crate::println;
@@ -18,10 +17,10 @@ fn panic(info: &PanicInfo) -> ! {
             "\x1b[91mPanic!\t{}:{} {}\x1b[0m",
             location.file(),
             location.line(),
-            info.message().unwrap()
+            info.message()
         );
     } else {
-        println!("\x1b[91Panic!\t{}\x1b[0m", info.message().unwrap());
+        println!("\x1b[91Panic!\t{}\x1b[0m", info.message());
     }
     shutdown()
 }
