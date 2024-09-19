@@ -1,5 +1,6 @@
-// os/src/loader/mod.rs
-// 本模块用于将app加载进入内存（所有App同时全部加载）
+//！ os/src/loader/mod.rs
+//！ 本模块用于将app加载进入内存（所有App同时全部加载）并负责内存栈的初始化构建
+pub mod stack;
 
 use crate::config::{APP_BASE_ADDRESS, APP_SIZE_LIMIT};
 use core::arch::asm;

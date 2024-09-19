@@ -1,4 +1,5 @@
-use core::arch::global_asm;
+mod context;
+pub mod trap;
 
 use log::{error, warn};
 use riscv::register::{
@@ -8,19 +9,12 @@ use riscv::register::{
 };
 
 pub use context::TrapContext;
+use trap::__alltraps;
 
-use crate::syscall::syscall;
-use crate::task::run_next_app;
-
-mod context;
-
-global_asm!(include_str!("trap.S"));
+use crate::{syscall::syscall, task::exit_current_and_run_next};
 
 /// 初始化中断处理
 pub fn init() {
-    extern "C" {
-        fn __alltraps();
-    }
     unsafe {
         stvec::write(__alltraps as usize, TrapMode::Direct);
     }
@@ -40,12 +34,12 @@ pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
         Trap::Exception(Exception::StoreFault) | Trap::Exception(Exception::StorePageFault) => {
             // 来自用户程序的内存访问异常
             warn!("PageFault in application, kernel killed it.");
-            run_next_app();
+            exit_current_and_run_next();
         }
         Trap::Exception(Exception::IllegalInstruction) => {
             // 来自用户程序的非法指令
             warn!("IllegalInstruction in application, kernel killed it.");
-            run_next_app();
+            exit_current_and_run_next();
         }
         _ => {
             // 无法处理的中断
@@ -54,7 +48,7 @@ pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
                 scause.cause(),
                 stval
             );
-            run_next_app();
+            exit_current_and_run_next();
         }
     }
     cx

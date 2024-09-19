@@ -50,7 +50,9 @@ __alltraps:
 # 第一种：从trap_handler返回至U Mode
 # 第二种：通过该func开始运行App
 __restore:
-    mv sp, a0
+    # 现在的__restore不再需要在开头mv sp, a0了
+    # 因为在__switch后sp就已经指向TrapContext的内存位置了
+
     # 现在sp->内核栈，sscratch->用户栈
     # 从内核栈恢复sstatus/sepc/sscratch
     ld t0, 32*8(sp)
@@ -67,7 +69,7 @@ __restore:
         LOAD_GP %n
         .set n, n+1
     .endr
-    # 释放内核栈空间
+    # 释放内核栈空间（出栈）
     addi sp, sp, 34*8
     # 交换sp与sscratch，使得sp指向用户栈，sscratch指向内核栈
     csrrw sp, sscratch, sp

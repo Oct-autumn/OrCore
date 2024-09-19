@@ -102,7 +102,7 @@ else
 #	获取串口访问权限
 	@sudo chmod 777 $(K210-SERIALPORT)
 #	烧录
-	python3 $(K210-BURNER) -p $(K210-SERIALPORT) -b 2000000 $(KERNEL_BIN)
+	python3 $(K210-BURNER) -p $(K210-SERIALPORT) -b 1500000 $(KERNEL_BIN)
 #	打开串口通信
 	python3 -m serial.tools.miniterm --eol LF --dtr 0 --rts 0 --filter direct $(K210-SERIALPORT) 115200
 endif

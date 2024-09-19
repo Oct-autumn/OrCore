@@ -12,7 +12,7 @@ fn main() -> i32 {
     println!("Into Test store_fault, we will insert an invalid store operation...");
     println!("Kernel should kill this application!");
     unsafe {
-        let invalid_ptr: *mut u8 = 0x114514 as *mut u8;
+        let invalid_ptr: *mut u8 = 0x00114514 as *mut u8;
         invalid_ptr.write_volatile(0);
     }
     0

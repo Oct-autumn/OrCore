@@ -3,7 +3,7 @@
 #![no_std] //Delete std-lib, use rust-core-lib
 #![no_main] //Remove main() func
 
-use core::arch::global_asm;
+use core::{arch::global_asm, panic};
 
 use log::*;
 
@@ -39,8 +39,11 @@ pub fn rust_main() -> ! {
     info!("Init trap handler.");
     trap::init();
     info!("Init task system.");
-    task::init();
-    task::run_next_app();
+    info!("loading apps...");
+    loader::load_apps();
+    task::run_first_task();
+
+    panic!("Unreachable in rust_main!");
 }
 
 fn init_bss() {

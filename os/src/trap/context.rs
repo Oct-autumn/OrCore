@@ -1,7 +1,7 @@
 use log::trace;
 use riscv::register::sstatus::{self, Sstatus, SPP};
 
-/// 结构体TrapContext，用于保存寄存器和CSR
+/// 中断上下文，用于保存寄存器和CSR
 #[repr(C)]
 pub struct TrapContext {
     /// 通用寄存器x0-x31
@@ -18,7 +18,7 @@ impl TrapContext {
         self.x[2] = sp;
     }
 
-    /// 构造函数，初始化应用程序的TrapContext
+    /// 构造函数，初始化应用程序的中断上下文
     pub fn app_init_context(entry: usize, sp: usize) -> Self {
         trace!("app_init_context: entry = {:#x}, sp = {:#x}", entry, sp);
         let mut sstatus = sstatus::read(); // CSR sstatus
