@@ -9,8 +9,8 @@ use riscv::register::{
 
 pub use context::TrapContext;
 
-use crate::batch::run_next_app;
 use crate::syscall::syscall;
+use crate::task::run_next_app;
 
 mod context;
 
@@ -18,7 +18,9 @@ global_asm!(include_str!("trap.S"));
 
 /// 初始化中断处理
 pub fn init() {
-    extern "C" { fn __alltraps(); }
+    extern "C" {
+        fn __alltraps();
+    }
     unsafe {
         stvec::write(__alltraps as usize, TrapMode::Direct);
     }
@@ -27,8 +29,8 @@ pub fn init() {
 /// 中断处理函数
 #[no_mangle]
 pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
-    let scause = scause::read();    // 获取中断原因
-    let stval = stval::read();          // 获取stval寄存器的值(额外参数)
+    let scause = scause::read(); // 获取中断原因
+    let stval = stval::read(); // 获取stval寄存器的值(额外参数)
     match scause.cause() {
         Trap::Exception(Exception::UserEnvCall) => {
             // 来自用户程序的系统调用
@@ -57,4 +59,3 @@ pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
     }
     cx
 }
-

@@ -1,5 +1,6 @@
 # os/src/trap/trap.S
 # 用于保存和恢复寄存器
+# 进入与退出系统调用时，需要对寄存器组进行保存和恢复
 
 .altmacro   # 启用备用宏模式，详见https://www.acrc.bris.ac.uk/acrc/RedHat/rhel-as-en-4/altmacro.html
 .macro SAVE_GP n    # 定义宏SAVE_GP，用于保存通用寄存器

@@ -5,8 +5,12 @@
  * console_putchar()   Func    put a char into console
  * shutdown()          Func    shutdown the machine gracefully
  */
+// Disable unused code warning for this file
+#![allow(unused)]
 
 use core::arch::asm;
+
+use log::warn;
 
 #[allow(unused)]
 const SBI_SET_TIMER: usize = 0;
@@ -48,7 +52,7 @@ pub fn console_putchar(c: usize) {
 
 /// shutdown the machine gracefully
 pub fn shutdown() -> ! {
+    warn!("Shutdown the machine gracefully.");
     sbi_call(SRST_EXTENSION, SBI_SHUTDOWN, 0, 0, 0);
     panic!("It should shutdown!")
 }
-

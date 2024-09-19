@@ -1,5 +1,5 @@
 use log::trace;
-use riscv::register::sstatus::{self, SPP, Sstatus};
+use riscv::register::sstatus::{self, Sstatus, SPP};
 
 /// 结构体TrapContext，用于保存寄存器和CSR
 #[repr(C)]

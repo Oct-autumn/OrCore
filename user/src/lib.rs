@@ -1,6 +1,5 @@
 #![no_std]
-#![feature(linkage)]            // 启用弱链接特性
-#![feature(panic_info_message)] // 启用panic_info_message特性
+#![feature(linkage)] // 启用弱链接特性
 
 use sys_call::*;
 
@@ -11,8 +10,10 @@ mod sys_call;
 
 #[no_mangle]
 #[link_section = ".text.entry"] // 定义该段为entry段，方便调整内存布局
+                                // 值得注意的是，这段代码被linker放在了.text.entry段，整个SECTION的最开始处。
+                                // 在batch执行时，jump过来的PC指针会直接开始执行这段代码。
 pub extern "C" fn _start() -> ! {
-    clear_bss();  //当使用半系统模拟时，注释掉
+    clear_bss(); //当使用半系统模拟时，注释掉
     exit(main());
     panic!("unreachable after sys_exit!");
 }
@@ -29,9 +30,10 @@ fn clear_bss() {
         fn start_bss();
         fn end_bss();
     }
-    (start_bss as usize..end_bss as usize).for_each(|addr| unsafe {
-        (addr as *mut u8).write_volatile(0);
-    });
+    let length = end_bss as usize - start_bss as usize;
+    unsafe {
+        core::slice::from_raw_parts_mut(start_bss as *mut u8, length).fill(0);
+    }
 }
 
 pub fn write(fd: usize, buf: &[u8]) -> isize {
