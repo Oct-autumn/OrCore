@@ -10,7 +10,7 @@
 
 use log::{self, Level, LevelFilter, Log, Metadata, Record};
 
-use crate::println;
+use crate::{println, util::time::get_time_usec};
 
 struct SimpleLogger;
 
@@ -30,8 +30,9 @@ impl Log for SimpleLogger {
             Level::Trace => 90, // BrightBlack
         };
         println!(
-            "\u{1B}[{}m[KERNEL | {:>5}] {}\u{1B}[0m",
+            "\u{1B}[{}m[ {:.6} | {:>5}] {}\u{1B}[0m",
             color,
+            get_time_usec() as f64 / 1_000_000.0,
             record.level(),
             record.args(),
         );

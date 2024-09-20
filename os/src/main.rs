@@ -19,6 +19,7 @@ mod sync;
 mod syscall;
 mod task;
 mod trap;
+mod util;
 
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("link_app.S")); //将App链入内核
@@ -36,11 +37,14 @@ pub fn rust_main() -> ! {
     trace!("[Test] TRACE log level"); // 用于调试的详细信息，会追踪到每个步骤
 
     // 调用AppManager
-    info!("Init trap handler.");
+    info!("Init trap handler...");
     trap::init();
-    info!("Init task system.");
-    info!("loading apps...");
+    info!("Load apps...");
     loader::load_apps();
+    info!("Init time interrupt...");
+    trap::enable_timer_interrupt();
+    util::time::reset_next_timer();
+    info!("System init finished, start first task...");
     task::run_first_task();
 
     panic!("Unreachable in rust_main!");

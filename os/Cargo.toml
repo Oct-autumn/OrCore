@@ -17,5 +17,6 @@ k210-soc = { git = "https://github.com/wyfcyx/k210-soc" }
 debug = true
 
 [features]
+default = ["board_qemu"]
 board_qemu = []
 board_k210 = []

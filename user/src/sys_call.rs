@@ -11,6 +11,7 @@ use core::arch::asm;
 const SYSCALL_WRITE: usize = 64;
 const SYSCALL_EXIT: usize = 93;
 const SYSCALL_YIELD: usize = 124;
+const SYSCALL_GET_TIME: usize = 169;
 
 fn syscall(id: usize, args: [usize; 3]) -> isize {
     let mut ret: isize;
@@ -52,4 +53,22 @@ pub fn sys_exit(exit_code: i32) -> isize {
 /// **syscall ID：** 124
 pub fn sys_yield() -> isize {
     syscall(SYSCALL_YIELD, [0, 0, 0])
+}
+
+#[repr(C)]
+pub struct TimeVal {
+    /// 系统启动后经过的秒数
+    pub sec: usize,
+    /// 系统启动后经过的微秒数
+    pub usec: usize,
+}
+
+/// **功能：** 获取当前时间。 <br>
+/// **参数：**  <br>
+///         - `time` 表示存放时间的结构体指针；<br>
+///         - `tz` 表示时区。（在本OS中不会使用）<br>
+/// **返回值：** 0 <br>
+/// **syscall ID：** 169
+pub fn sys_get_time(time: *mut TimeVal, tz: usize) -> isize {
+    syscall(SYSCALL_GET_TIME, [time as *const _ as usize, tz, 0])
 }

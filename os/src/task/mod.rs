@@ -68,7 +68,7 @@ impl TaskManager {
         drop(task_manager_inner); // 释放mut引用
 
         let mut _deprecate = TaskContext::zero_init(); // 用于接收当前任务的上下文（实际上当前任务不会返回）
-        info!("Jumping to task_0...");
+        debug!("Jumping to task_0...");
         unsafe {
             __switch(&mut _deprecate as *mut TaskContext, next_task_cx_ptr);
         }
@@ -140,7 +140,7 @@ impl TaskManager {
 
             drop(task_manager_inner); // 释放mut引用
 
-            info!("Jumping to task_{}...", next_task_id);
+            debug!("Jumping to task_{}...", next_task_id);
 
             //调用__switch func切换任务
             unsafe {

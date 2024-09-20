@@ -12,7 +12,6 @@ use core::arch::asm;
 
 use log::warn;
 
-#[allow(unused)]
 const SBI_SET_TIMER: usize = 0;
 const SBI_CONSOLE_PUTCHAR: usize = 1;
 const SBI_CONSOLE_GETCHAR: usize = 2;
@@ -25,6 +24,7 @@ const SBI_REMOTE_SFENCE_VMA_ASID: usize = 7;
 // system reset extension
 const SRST_EXTENSION: usize = 0x53525354;
 const SBI_SHUTDOWN: usize = 0;
+const SBI_REBOOT: usize = 1;
 
 // call RustSBI service
 #[inline(always)]
@@ -55,4 +55,11 @@ pub fn shutdown() -> ! {
     warn!("Shutdown the machine gracefully.");
     sbi_call(SRST_EXTENSION, SBI_SHUTDOWN, 0, 0, 0);
     panic!("It should shutdown!")
+}
+
+/// set timer interrupt
+/// # args
+/// * `time` - time to set
+pub fn set_timer(time: usize) {
+    sbi_call(SBI_SET_TIMER, 0, time, 0, 0);
 }

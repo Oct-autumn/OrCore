@@ -47,3 +47,15 @@ pub fn exit(exit_code: i32) -> isize {
 pub fn yield_next() -> isize {
     sys_yield()
 }
+
+pub fn get_time_msec() -> usize {
+    let mut tv = TimeVal { sec: 0, usec: 0 };
+    sys_get_time(&mut tv, 0);
+    tv.usec / 1_000 + tv.sec * 1_000
+}
+
+pub fn get_time_usec() -> usize {
+    let mut tv = TimeVal { sec: 0, usec: 0 };
+    sys_get_time(&mut tv, 0);
+    tv.usec + tv.sec * 1_000_000
+}

@@ -36,11 +36,11 @@ build: env switch-check $(KERNEL_BIN)
 
 # 切换环境时，清除上一次的编译结果
 switch-check:
-ifeq ($(BOARD), qemu)
-	(which last-qemu) || (rm last-k210 -f && touch last-qemu && make clean)
-else ifeq ($(BOARD), k210)
-	(which last-k210) || (rm last-qemu -f && touch last-k210 && make clean)
-endif
+#ifeq ($(BOARD), qemu)
+#	(which last-qemu) || (rm last-k210 -f && touch last-qemu && make clean)
+#else ifeq ($(BOARD), k210)
+#	(which last-k210) || (rm last-qemu -f && touch last-k210 && make clean)
+#endif
 
 # 建立编译环境
 env:

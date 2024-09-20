@@ -4,8 +4,6 @@
 #![no_std] //Delete std-lib, use rust-core-lib
 #![no_main] //Remove main() func
 
-use user_lib::yield_next;
-
 #[macro_use]
 extern crate user_lib;
 
@@ -25,8 +23,6 @@ fn main() -> i32 {
         pow[index] = last * P % MOD;
         if i % 10000 == 0 {
             println!("{}^{}={}(MOD {})", P, i, pow[index], MOD);
-            println!("Yield... ");
-            yield_next();
         }
     }
     println!("Test power OK!");

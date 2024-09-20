@@ -8,13 +8,15 @@ use core::panic::PanicInfo;
 
 use crate::println;
 use crate::sbi_call::shutdown;
+use crate::util::time::get_time_usec;
 
 /// KernelPanic func
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     if let Some(location) = info.location() {
         println!(
-            "\x1b[91mPanic!\t{}:{} {}\x1b[0m",
+            "\x1b[91mPanic!\t{}us\t{}:{} {}\x1b[0m",
+            get_time_usec(),
             location.file(),
             location.line(),
             info.message()
