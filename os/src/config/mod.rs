@@ -10,4 +10,10 @@ pub const CLOCK_FREQ: usize = 403000000 / 62;
 #[cfg(all(feature = "board_qemu", not(feature = "board_k210")))]
 pub const CLOCK_FREQ: usize = 12500000;
 
-pub const TICKS_PER_SEC: usize = 200; // 每秒时钟中断次数（注意，如果内核日志输出等级过高，会导致用户程序因无法分得足够的时间片而不能正常运行）
+pub const TICKS_PER_SEC: usize = 100; // 每秒时钟中断次数（注意，如果内核日志输出等级过高，会导致用户程序因无法分得足够的时间片而不能正常运行）
+
+// 内核堆大小（3MB）
+#[cfg(feature = "board_k210")]
+pub const KERNEL_HEAP_SIZE: usize = 0x30_0000;
+#[cfg(all(feature = "board_qemu", not(feature = "board_k210")))]
+pub const KERNEL_HEAP_SIZE: usize = 0x20_0000;
