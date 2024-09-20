@@ -6,7 +6,7 @@
 
 要编译运行测试该项目，你需要以下组件：
 
-- QEMU(Support RISC-V 64)
+- QEMU(Support RISC-V 64) / k210开发板
 - Rust for RISC-V
 - GDB
 
@@ -14,34 +14,22 @@
 
 ## 运行
 
-**注意：** 所有脚本都应在`/OrCore`目录下运行.
-
-要编译内核与ULP，请运行以下指令：
+os文件夹中的Makefile已经包含了编译user文件夹中的用户程序的命令，因此只需要在os文件夹中运行make命令即可编译整个项目。
 
 ~~~shell
-./build_rs.sh
+    cd os
+    # 编译并在QEMU模拟器上运行
+    make run
+    # 编译并在k210开发板上运行
+    make run BOARD=k210
 ~~~
 
-也可使用`--build-os-only` `--build-user-only`等选项指定编译目标和功能
-
-要启动QEMU模拟器并加载对应的OS Kernel镜像，请运行以下指令：
-
-~~~shell
-./start-qemu.sh
-~~~
-
-如果要在启动模拟器的同时使用GDB进行调试，请运行以下指令：
-
-~~~shell
-./start-qemu.sh --wait-gdb
-# 新建命令行窗口，运行以下指令
-./start-gdb.sh
-~~~
+* 你还可以添加编译参数，如`make run LOG="INFO"`可以设置内核的日志输出级别为INFO。
 
 ## 注意事项
 
 1. user部分的应用程序在半系统模式下试运行时，需要按照以下代码块中的指引注释掉两行代码，否则将导致程序在半系统中无法正常运行。
-    ```config
+    ```toml
     # user/.cargo/config
     [target.riscv64gc-unknown-none-elf]
     rustflags = [

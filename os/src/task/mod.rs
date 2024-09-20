@@ -7,14 +7,10 @@ use lazy_static::lazy_static;
 use log::*;
 use switch::__switch;
 
-use crate::config::{
-    APP_BASE_ADDRESS, APP_SIZE_LIMIT, KERNEL_STACK_SIZE, MAX_APP_NUM, USER_STACK_SIZE,
-};
+use crate::config::MAX_APP_NUM;
+use crate::loader::get_num_app;
 use crate::loader::stack::init_app_cx;
-use crate::loader::{get_num_app, load_apps};
 use crate::sync::UPSafeCell;
-use crate::trap::trap::__restore;
-use crate::trap::TrapContext;
 
 use task::{TaskContext, TaskControlBlock, TaskStatus};
 
@@ -128,7 +124,7 @@ impl TaskManager {
             }
 
             trace!("Going to run next task...");
-            
+
             let mut task_manager_inner = self.inner.exclusive_access();
             let current_task_id = task_manager_inner.current_task;
             // 将下一个任务的状态设置为“运行态”
