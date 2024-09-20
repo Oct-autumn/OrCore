@@ -36,11 +36,11 @@ build: env switch-check $(KERNEL_BIN)
 
 # 切换环境时，清除上一次的编译结果
 switch-check:
-#ifeq ($(BOARD), qemu)
-#	(which last-qemu) || (rm last-k210 -f && touch last-qemu && make clean)
-#else ifeq ($(BOARD), k210)
-#	(which last-k210) || (rm last-qemu -f && touch last-k210 && make clean)
-#endif
+ifeq ($(BOARD), qemu)
+	if [ ! -e ./last-qemu ]; then rm last-k210 -f && touch last-qemu && make clean; fi
+else ifeq ($(BOARD), k210)
+	if [ ! -e ./last-k210 ]; then rm last-qemu -f && touch last-k210 && make clean; fi
+endif
 
 # 建立编译环境
 env:
@@ -102,7 +102,7 @@ else
 #	获取串口访问权限
 	@sudo chmod 777 $(K210-SERIALPORT)
 #	烧录
-	python3 $(K210-BURNER) -p $(K210-SERIALPORT) -b 1500000 $(KERNEL_BIN)
+	python3 $(K210-BURNER) -p $(K210-SERIALPORT) -b 2000000 $(KERNEL_BIN)
 #	打开串口通信
 	python3 -m serial.tools.miniterm --eol LF --dtr 0 --rts 0 --filter direct $(K210-SERIALPORT) 115200
 endif

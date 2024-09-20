@@ -8,10 +8,8 @@ edition = "2021"
 [dependencies]
 log = "0.4.22"
 lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
-riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
-k210-pac = { git = "https://github.com/wyfcyx/k210-pac" }
-k210-hal = { git = "https://github.com/wyfcyx/k210-hal" }
-k210-soc = { git = "https://github.com/wyfcyx/k210-soc" }
+#riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
+riscv = "0.11.1"
 
 [profile.release]
 debug = true

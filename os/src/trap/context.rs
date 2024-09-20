@@ -21,8 +21,13 @@ impl TrapContext {
     /// 构造函数，初始化应用程序的中断上下文
     pub fn app_init_context(entry: usize, sp: usize) -> Self {
         trace!("app_init_context: entry = {:#x}, sp = {:#x}", entry, sp);
-        let mut sstatus = sstatus::read(); // CSR sstatus
-        sstatus.set_spp(SPP::User); // 设置sstatus的SPP位为1，表示当前运行在用户态
+        let sstatus = sstatus::read(); // CSR sstatus
+        unsafe {
+            sstatus::set_spp(SPP::User); // 设置sstatus的SPP位为1，表示当前运行在用户态
+        }
+        // 若使用`https://github.com/rcore-os/riscv`作为riscv依赖库，则需使用以下代码：
+        //let mut sstatus = sstatus::read(); // CSR sstatus
+        //sstatus.set_spp(SPP::User); // 设置sstatus的SPP位为1，表示当前运行在用户态
         let mut cx = Self {
             x: [0; 32],
             sstatus,
