@@ -1,6 +1,11 @@
+//! os/src/mem/heap_allocator.rs
+//!
+//! 堆内存分配器
+
 use crate::{config::KERNEL_HEAP_SIZE, println};
 use buddy_system_allocator::LockedHeap;
 
+// 定义堆内存分配器
 #[global_allocator]
 static HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::<32>::empty();
 
@@ -19,8 +24,11 @@ pub fn handle_alloc_error(layout: core::alloc::Layout) -> ! {
     panic!("Heap allocation error, layout = {:?}", layout);
 }
 
+/// 堆内存分配器测试
+/// 测试堆内存分配和回收
 #[allow(unused)]
 pub fn heap_test() {
+    println!("running heap_test...");
     use alloc::boxed::Box;
     use alloc::vec::Vec;
     extern "C" {

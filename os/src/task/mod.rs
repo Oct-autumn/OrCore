@@ -31,7 +31,7 @@ struct TaskManagerInner {
     current_task: usize,
 }
 
-// 运行时初始化
+// 全局的任务管理器
 lazy_static! {
     static ref TASK_MANAGER: TaskManager = {
         trace!("Initializing TASK_MANAGER...");

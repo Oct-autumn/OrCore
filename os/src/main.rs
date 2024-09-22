@@ -3,13 +3,14 @@
 #![no_std] //Delete std-lib, use rust-core-lib
 #![no_main] //Remove main() func
 #![feature(alloc_error_handler)] //Use alloc_error_handler
+#![feature(sync_unsafe_cell)] //Use sync_unsafe_cell
 
 use core::{arch::global_asm, panic};
 
 extern crate alloc;
+extern crate bitflags;
 
 use log::*;
-use mem::heap_allocator::heap_test;
 
 use crate::console::print;
 
@@ -37,7 +38,10 @@ pub fn rust_main() -> ! {
     println!("[Test] 你好，世界！"); // 中文测试
 
     mem::heap_allocator::init_heap();
-    heap_test(); //堆内存分配测试
+    mem::heap_allocator::heap_test(); //堆内存分配测试
+
+    mem::frame_allocator::init_frame_allocator();
+    mem::frame_allocator::frame_alloc_test(); //页帧分配测试
 
     kernel_log::init();
     error!("[Test] ERROR log level"); // 内核遇到了可恢复的错误，但无法确定是否会影响系统稳定性

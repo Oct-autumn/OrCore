@@ -1,3 +1,7 @@
+//! os/src/trap/context.rs
+//!
+//! 中断上下文数据结构定义与方法实现
+
 use log::trace;
 use riscv::register::sstatus::{self, Sstatus, SPP};
 

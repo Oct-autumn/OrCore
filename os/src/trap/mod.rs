@@ -1,3 +1,8 @@
+//! os/src/trap/mod.rs
+//!
+//! 中断处理模块
+//! 包含中断分发
+
 mod context;
 pub mod trap;
 

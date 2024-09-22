@@ -1,0 +1,1 @@
+本小节分为两个部分：第一部分，我们实现了一个物理页帧分配器`FrameAllocator`，它负责分配和释放物理页帧。我们运用RAII的思想，将页帧包裹在`FrameTracker`中，使得其生命周期与FrameTracker绑定。这样，在FrameTracker被Drop（生命周期结束）时，对应的页帧也会被释放，避免了内存泄漏。

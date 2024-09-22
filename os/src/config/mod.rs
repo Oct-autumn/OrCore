@@ -12,8 +12,16 @@ pub const CLOCK_FREQ: usize = 12500000;
 
 pub const TICKS_PER_SEC: usize = 100; // 每秒时钟中断次数（注意，如果内核日志输出等级过高，会导致用户程序因无法分得足够的时间片而不能正常运行）
 
-// 内核堆大小（3MB）
+pub const MEMORY_START: usize = 0x80000000; // 内存起始地址
+pub const MEMORY_END: usize = 0x80800000; // 内存结束地址
+
+// 内核堆大小
 #[cfg(feature = "board_k210")]
-pub const KERNEL_HEAP_SIZE: usize = 0x30_0000;
+pub const KERNEL_HEAP_SIZE: usize = 0x30_0000; // 3MB
 #[cfg(all(feature = "board_qemu", not(feature = "board_k210")))]
-pub const KERNEL_HEAP_SIZE: usize = 0x20_0000;
+pub const KERNEL_HEAP_SIZE: usize = 0x20_0000; // 2MB
+
+// 内存分页
+pub const PAGE_SIZE_BITS: usize = 0xc;
+
+pub const PAGE_SIZE: usize = 1 << PAGE_SIZE_BITS; // 页大小
