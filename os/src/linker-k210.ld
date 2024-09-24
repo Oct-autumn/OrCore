@@ -10,7 +10,10 @@ SECTIONS
 
     stext = .;
     .text : {
-        *(.text.entry)      /* Put asm in front of core code */
+        *(.text.entry)
+        . = ALIGN(4K);
+        strampoline = .;
+        *(.text.trampoline);
         . = ALIGN(4K);
         *(.text .text.*)
     }
@@ -33,17 +36,16 @@ SECTIONS
 
     . = ALIGN(4K);
     edata = .;
+    sbss_with_stack = .;
     .bss : {
-        *(.bss.kernel_stack)    /* KernelStack is here */
-        *(.bss.user_stack)      /* UserStack is here */
-        *(.bss.stack)           /* FuncStack is here */
-        start_bss = .;
+        *(.bss.stack)
+        sbss = .;
         *(.bss .bss.*)
         *(.sbss .sbss.*)
     }
 
     . = ALIGN(4K);
-    end_bss = .;
+    ebss = .;
     ekernel = .;
 
     /DISCARD/ : {

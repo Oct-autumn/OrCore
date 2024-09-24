@@ -35,6 +35,7 @@ impl StackFrameAllocator {
     }
 
     /// 获取已经分配的物理页号量
+    #[allow(unused)]
     pub fn get_allocated(&self) -> usize {
         self.current - self.recycled.len()
     }
@@ -78,18 +79,19 @@ impl FrameAllocator for StackFrameAllocator {
     }
 }
 
+/// 物理页帧追踪器
+///
+/// 用于绑定物理页的生命周期
 pub struct FrameTracker {
-    ppn: PhysPageNum,
+    pub ppn: PhysPageNum,
 }
 
 impl FrameTracker {
     pub fn new(ppn: PhysPageNum) -> Self {
-        // TODO: 清空页
+        // 清空页
+        ppn.fill_zero();
 
         Self { ppn }
-    }
-    pub fn ppn(&self) -> PhysPageNum {
-        self.ppn
     }
 }
 
@@ -141,26 +143,20 @@ fn frame_dealloc(ppn: PhysPageNum) {
 pub fn frame_alloc_test() {
     println!("running frame_test...");
 
-    {
-        let (s, e) = FRAME_ALLOCATOR.exclusive_access().get_range();
-        println!("all available frame range: [{:x} - {:x}]", s, e);
-    }
+    let (s, e) = FRAME_ALLOCATOR.exclusive_access().get_range();
+    println!("all available frame range: [{:x} - {:x}]", s, e);
 
     let mut alloced_frames = Vec::new();
     for _ in 0..10 {
         let frame = frame_alloc().unwrap();
-        println!("alloc frame: {:?}", frame.ppn());
         alloced_frames.push(frame);
     }
     alloced_frames.clear();
-    println!("dealloc all frame.");
     for _ in 0..10 {
         let frame = frame_alloc().unwrap();
-        println!("alloc frame: {:?}", frame.ppn());
         alloced_frames.push(frame);
     }
     drop(alloced_frames);
-    println!("dealloc all frame.");
 
     println!("frame_test passed!");
 }

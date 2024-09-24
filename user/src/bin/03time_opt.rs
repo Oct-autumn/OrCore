@@ -1,4 +1,4 @@
-//! user/src/bin/05time_opt.rs
+//! user/src/bin/03time_opt.rs
 //! 实验：时间系统调用
 
 #![no_std] //Delete std-lib, use rust-core-lib
@@ -11,6 +11,7 @@ use user_lib::{get_time_usec, yield_next};
 
 #[no_mangle]
 fn main() -> i32 {
+    // TODO: 调用异常！
     println!(
         "Time since boot: {:.6}s",
         get_time_usec() as f64 / 1_000_000.0

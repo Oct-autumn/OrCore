@@ -2,20 +2,20 @@
 //! 构建模块，会在加载项目时自动运行。
 //! 用于生成将user中的用户应用程序链入内核的.S文件
 
-use std::fs::{File, read_dir};
+use std::fs::{read_dir, File};
 use std::io::{Result, Write};
 
 fn main() {
-    println!(" cargo:rerun-if-changed=../user/src/");
-    println!(" cargo:rerun-if-changed={}", TARGET_PATH);
+    println!("cargo:rerun-if-changed=../user/src/");
+    println!("cargo:rerun-if-changed={}", TARGET_PATH);
     insert_app_data().unwrap();
 }
 
-static TARGET_PATH: &str = "../user/target/riscv64gc-unknown-none-elf/release/";
+static TARGET_PATH: &str = "../user/build/elf/";
 
 fn insert_app_data() -> Result<()> {
-    let mut f = File::create("src/link_app.S").unwrap();        // 创建link_app.S
-    let mut apps: Vec<_> = read_dir("../user/src/bin")          // 读取"../user/src/bin"目录中的代码
+    let mut f = File::create("src/link_app.S").unwrap();
+    let mut apps: Vec<_> = read_dir("../user/build/elf/")
         .unwrap()
         .into_iter()
         .map(|dir_entry| {
@@ -26,7 +26,6 @@ fn insert_app_data() -> Result<()> {
         .collect();
     apps.sort();
 
-    // 写入头部索引
     writeln!(
         f,
         r#"
@@ -38,7 +37,6 @@ _num_app:
         apps.len()
     )?;
 
-    // 为每个APP编入
     for i in 0..apps.len() {
         writeln!(f, r#"    .quad app_{}_start"#, i)?;
     }
@@ -52,8 +50,9 @@ _num_app:
     .section .data
     .global app_{0}_start
     .global app_{0}_end
+    .align 3
 app_{0}_start:
-    .incbin "{2}{1}.bin"
+    .incbin "{2}{1}.elf"
 app_{0}_end:"#,
             idx, app, TARGET_PATH
         )?;

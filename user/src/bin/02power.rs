@@ -7,24 +7,26 @@
 #[macro_use]
 extern crate user_lib;
 
-const SIZE: usize = 10;
-const P: u32 = 3;
-const STEP: usize = 100000;
-const MOD: u32 = 10007;
+const LEN: usize = 100;
+
+static mut S: [u64; LEN] = [0u64; LEN];
 
 #[no_mangle]
-fn main() -> i32 {
-    let mut pow = [0u32; SIZE];
-    let mut index: usize = 0;
-    pow[index] = 1;
-    for i in 1..=STEP {
-        let last = pow[index];
-        index = (index + 1) % SIZE;
-        pow[index] = last * P % MOD;
+unsafe fn main() -> i32 {
+    let p = 3u64;
+    let m = 998244353u64;
+    let iter: usize = 300000;
+    let mut cur = 0usize;
+    S[cur] = 1;
+    for i in 1..=iter {
+        let next = if cur + 1 == LEN { 0 } else { cur + 1 };
+        S[next] = S[cur] * p % m;
+        cur = next;
         if i % 10000 == 0 {
-            println!("{}^{}={}(MOD {})", P, i, pow[index], MOD);
+            println!("power_3 [{}/{}]", i, iter);
         }
     }
-    println!("Test power OK!");
+    println!("{}^{} = {}(MOD {})", p, iter, S[cur], m);
+    println!("Test power_3 OK!");
     0
 }

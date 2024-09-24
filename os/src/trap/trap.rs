@@ -4,5 +4,5 @@ global_asm!(include_str!("trap.S"));
 
 extern "C" {
     pub fn __alltraps();
-    pub fn __restore(cx_addr: usize);
+    pub fn __restore();
 }

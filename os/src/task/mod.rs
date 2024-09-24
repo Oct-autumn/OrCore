@@ -1,18 +1,20 @@
 //! os/src/batch.rs <br>
 //! The batch system
+mod context;
 mod switch;
 mod task;
 
+use alloc::vec::Vec;
+use context::TaskContext;
 use lazy_static::lazy_static;
 use log::*;
 use switch::__switch;
 
-use crate::config::MAX_APP_NUM;
-use crate::loader::get_num_app;
-use crate::loader::stack::init_app_cx;
+use crate::loader::{get_app_data, get_num_app};
 use crate::sync::UPSafeCell;
+use crate::trap::TrapContext;
 
-use task::{TaskContext, TaskControlBlock, TaskStatus};
+use task::{TaskControlBlock, TaskStatus};
 
 /// 任务管理器
 ///
@@ -27,31 +29,28 @@ pub struct TaskManager {
 ///
 /// 任务管理器内部数据包括所有任务的控制块和当前任务的索引。
 struct TaskManagerInner {
-    tasks: [TaskControlBlock; MAX_APP_NUM],
+    tasks: Vec<TaskControlBlock>,
     current_task: usize,
 }
 
 // 全局的任务管理器
 lazy_static! {
-    static ref TASK_MANAGER: TaskManager = {
-        trace!("Initializing TASK_MANAGER...");
-
+    pub static ref TASK_MANAGER: TaskManager = {
+        info!("Init task manager...");
         let num_app = get_num_app();
-        let mut tasks = [TaskControlBlock::default(); MAX_APP_NUM];
-
+        debug!("num_app = {}", num_app);
+        let mut tasks: Vec<TaskControlBlock> = Vec::new();
         for i in 0..num_app {
-            tasks[i].task_cx = TaskContext::goto_restore(init_app_cx(i));
-            tasks[i].task_status = TaskStatus::Ready;
+            tasks.push(TaskControlBlock::new(get_app_data(i), i));
         }
-
-        unsafe {
-            TaskManager {
-                num_app,
-                inner: UPSafeCell::new(TaskManagerInner {
+        TaskManager {
+            num_app,
+            inner: unsafe {
+                UPSafeCell::new(TaskManagerInner {
                     tasks,
                     current_task: 0,
-                }),
-            }
+                })
+            },
         }
     };
 }
@@ -59,18 +58,19 @@ lazy_static! {
 impl TaskManager {
     /// 运行顺位第一个任务
     fn run_first_task(&self) -> ! {
-        trace!("Going to run the first app...");
+        info!("Going to run the first app...");
         // 此时TASK_MANAGER应当已经初始化完成
         let mut task_manager_inner = self.inner.exclusive_access();
         let task0 = &mut task_manager_inner.tasks[0];
         task0.task_status = TaskStatus::Running; // 将任务状态设置为“运行态”
         let next_task_cx_ptr = &task0.task_cx as *const TaskContext;
+        task_manager_inner.current_task = 0; // 切换当前运行的任务id
         drop(task_manager_inner); // 释放mut引用
 
         let mut _deprecate = TaskContext::zero_init(); // 用于接收当前任务的上下文（实际上当前任务不会返回）
         debug!("Jumping to task_0...");
         unsafe {
-            __switch(&mut _deprecate as *mut TaskContext, next_task_cx_ptr);
+            __switch(&mut _deprecate as *mut _, next_task_cx_ptr);
         }
         panic!("Unreachable in task::run_first_task!");
     }
@@ -151,6 +151,18 @@ impl TaskManager {
             panic!("No more tasks to run!");
         }
     }
+
+    /// 获取当前任务的中断上下文
+    fn get_current_trap_cx(&self) -> &'static mut TrapContext {
+        let inner = self.inner.exclusive_access();
+        inner.tasks[inner.current_task].get_trap_cx()
+    }
+
+    /// 获取当前任务的页表token
+    fn get_current_ptb_token(&self) -> usize {
+        let inner = self.inner.exclusive_access();
+        inner.tasks[inner.current_task].memory_set.token()
+    }
 }
 
 /// 运行第一个任务
@@ -183,4 +195,14 @@ pub fn suspend_current_and_run_next() {
 pub fn exit_current_and_run_next() {
     mark_current_exited();
     run_next_task();
+}
+
+/// 获取当前任务的中断上下文
+pub fn current_trap_cx() -> &'static mut TrapContext {
+    TASK_MANAGER.get_current_trap_cx()
+}
+
+/// 获取当前任务的页表token
+pub fn current_user_token() -> usize {
+    TASK_MANAGER.get_current_ptb_token()
 }

@@ -6,6 +6,8 @@ use log::trace;
 use riscv::register::sstatus::{self, Sstatus, SPP};
 
 /// 中断上下文，用于保存寄存器和CSR
+///
+/// 警告：这个结构体中的参数顺序不能随便修改，因为在`trap.S`中直接使用了这个结构体
 #[repr(C)]
 pub struct TrapContext {
     /// 通用寄存器x0-x31
@@ -14,6 +16,12 @@ pub struct TrapContext {
     pub sstatus: Sstatus,
     /// CSR sepc
     pub sepc: usize,
+    /// 内核地址空间的 token ，即内核页表的起始物理地址
+    pub kernel_satp: usize,
+    /// 当前应用在内核地址空间中的内核栈栈顶的虚拟地址
+    pub kernel_sp: usize,
+    /// 内核中`trap handler`入口点的虚拟地址
+    pub trap_handler: usize,
 }
 
 impl TrapContext {
@@ -23,7 +31,13 @@ impl TrapContext {
     }
 
     /// 构造函数，初始化应用程序的中断上下文
-    pub fn app_init_context(entry: usize, sp: usize) -> Self {
+    pub fn app_init_context(
+        entry: usize,
+        sp: usize,
+        kernel_satp: usize,
+        kernel_sp: usize,
+        trap_handler: usize,
+    ) -> Self {
         trace!("app_init_context: entry = {:#x}, sp = {:#x}", entry, sp);
         let sstatus = sstatus::read(); // CSR sstatus
         unsafe {
@@ -36,6 +50,9 @@ impl TrapContext {
             x: [0; 32],
             sstatus,
             sepc: entry, // 应用程序的入口地址
+            kernel_satp,
+            kernel_sp,
+            trap_handler,
         };
         cx.set_sp(sp); // 设置应用程序的栈指针
         cx // 返回初始化的TrapContext

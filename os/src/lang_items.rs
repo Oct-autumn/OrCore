@@ -24,5 +24,6 @@ fn panic(info: &PanicInfo) -> ! {
     } else {
         println!("\x1b[91Panic!\t{}\x1b[0m", info.message());
     }
+
     shutdown()
 }

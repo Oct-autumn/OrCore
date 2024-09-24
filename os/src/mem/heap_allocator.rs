@@ -7,12 +7,13 @@ use buddy_system_allocator::LockedHeap;
 
 // 定义堆内存分配器
 #[global_allocator]
-static HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::<32>::empty();
+static HEAP_ALLOCATOR: LockedHeap<32> = LockedHeap::empty();
 
 static mut HEAP_SPACE: [u8; KERNEL_HEAP_SIZE] = [0; KERNEL_HEAP_SIZE];
 
 pub fn init_heap() {
     unsafe {
+        #[allow(static_mut_refs)] // 禁用static_mut_refs警告
         HEAP_ALLOCATOR
             .lock()
             .init(HEAP_SPACE.as_ptr() as usize, KERNEL_HEAP_SIZE);
@@ -32,10 +33,10 @@ pub fn heap_test() {
     use alloc::boxed::Box;
     use alloc::vec::Vec;
     extern "C" {
-        fn start_bss();
-        fn end_bss();
+        fn sbss();
+        fn ebss();
     }
-    let bss_range = start_bss as usize..end_bss as usize;
+    let bss_range = sbss as usize..ebss as usize;
     let a = Box::new(5);
     assert_eq!(*a, 5);
     assert!(bss_range.contains(&(a.as_ref() as *const _ as usize)));

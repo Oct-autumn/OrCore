@@ -29,6 +29,7 @@ pub fn get_time_usec() -> usize {
 /// 以纳秒为单位获取系统运行时间（不精准）
 ///
 /// 实验性函数
+#[cfg(feature = "experimental")]
 pub fn get_time_nsec() -> usize {
     (time::read() as f64 / (CLOCK_FREQ as f64 / NANOSECONDS_PER_SECOND as f64)) as usize
 }

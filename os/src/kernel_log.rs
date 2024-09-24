@@ -49,7 +49,7 @@ pub fn init() {
         Some("INFO") => LevelFilter::Info,
         Some("DEBUG") => LevelFilter::Debug,
         Some("TRACE") => LevelFilter::Trace,
-        _ => LevelFilter::Off,
+        Some(_) | None => LevelFilter::Info,
     });
     //log::set_max_level(LevelFilter::Trace)
 }

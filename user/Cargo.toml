@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 riscv = "0.11.1"
+buddy_system_allocator = "0.11.0"
 
 [profile.release]
 debug = true
