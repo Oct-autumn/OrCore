@@ -12,6 +12,8 @@ const SYSCALL_WRITE: usize = 64;
 const SYSCALL_EXIT: usize = 93;
 const SYSCALL_YIELD: usize = 124;
 const SYSCALL_GET_TIME: usize = 169;
+const SYSCALL_MMAP: usize = 222;
+const SYSCALL_MUNMAP: usize = 215;
 
 fn syscall(id: usize, args: [usize; 3]) -> isize {
     let mut ret: isize;
@@ -71,4 +73,25 @@ pub struct TimeVal {
 /// **syscall ID：** 169
 pub fn sys_get_time(time: *mut TimeVal, tz: usize) -> isize {
     syscall(SYSCALL_GET_TIME, [time as *const _ as usize, tz, 0])
+}
+
+/// **功能：** 为当前应用程序申请内存空间。 <br>
+/// **参数：**  <br>
+///         - `s_va` 表示申请内存的起始地址；<br>
+///         - `len` 表示申请内存的长度；<br>
+///         - `prot` 表示内存的权限。<br>
+/// **返回值：** 0表示成功，-1表示失败。<br>
+/// **syscall ID：** 222
+pub fn sys_mmap(s_va: usize, len: usize, prot: usize) -> isize {
+    syscall(SYSCALL_MMAP, [s_va, len, prot])
+}
+
+/// **功能：** 释放当前应用程序的内存空间。 <br>
+/// **参数：**  <br>
+///         - `s_va` 表示释放内存的起始地址；<br>
+///         - `len` 表示释放内存的长度。<br>
+/// **返回值：** 0表示成功，-1表示失败。<br>
+/// **syscall ID：** 215
+pub fn sys_munmap(s_va: usize, len: usize) -> isize {
+    syscall(SYSCALL_MUNMAP, [s_va, len, 0])
 }

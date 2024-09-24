@@ -15,8 +15,8 @@ use crate::util::time::get_time_usec;
 fn panic(info: &PanicInfo) -> ! {
     if let Some(location) = info.location() {
         println!(
-            "\x1b[91mPanic!\t{}us\t{}:{} {}\x1b[0m",
-            get_time_usec(),
+            "\x1b[91mPanic!\t{}s\t{}:{} {}\x1b[0m",
+            get_time_usec() as f64 / 1_000_000.0,
             location.file(),
             location.line(),
             info.message()

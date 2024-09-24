@@ -53,11 +53,13 @@ impl TaskControlBlock {
         let task_status = TaskStatus::Ready;
         // 申请内核栈空间
         let (kernel_stack_bottom, kernel_stack_top) = kernel_stack_position(app_id);
-        KERNEL_SPACE.exclusive_access().insert_framed_area(
+        if let Err(e) = KERNEL_SPACE.exclusive_access().insert_framed_area(
             kernel_stack_bottom.into(),
             kernel_stack_top.into(),
             SegPermission::R | SegPermission::W,
-        );
+        ) {
+            panic!("failed to insert kernel stack: {:?}", e);
+        }
         debug!(
             "kernel stack: {:#x} - {:#x}",
             kernel_stack_bottom, kernel_stack_top

@@ -40,7 +40,7 @@ pub fn trap_handler() -> ! {
     let scause = scause::read(); // 获取中断原因
     let stval = stval::read(); // 获取stval寄存器的值(额外参数)
     trace!(
-        "A trap was caught! scause: {:?}, stval: {:#x}",
+        "A User trap was caught! scause: {:?}, stval: {:#x}",
         scause.cause(),
         stval
     );
@@ -55,7 +55,9 @@ pub fn trap_handler() -> ! {
             cx.sepc += 4;
             cx.x[10] = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]]) as usize;
         }
-        Trap::Exception(Exception::StoreFault) | Trap::Exception(Exception::StorePageFault) => {
+        Trap::Exception(Exception::StoreFault)
+        | Trap::Exception(Exception::StorePageFault)
+        | Trap::Exception(Exception::LoadPageFault) => {
             // 来自用户程序的内存访问异常
             warn!("PageFault in application, kernel killed it.");
             task::exit_current_and_run_next();
@@ -95,7 +97,13 @@ fn set_kernel_trap_entry() {
 
 #[no_mangle]
 pub fn trap_from_kernel() -> ! {
-    panic!("a trap from kernel!");
+    let scause = scause::read();
+    let stval = stval::read();
+    panic!(
+        "Unhandled Kernel trap: {:?}, stval: {:#x}",
+        scause.cause(),
+        stval
+    );
 }
 
 fn set_user_trap_entry() {
@@ -108,7 +116,7 @@ fn set_user_trap_entry() {
 pub fn trap_return() -> ! {
     set_user_trap_entry();
     let trap_cx_ptr = config::TRAP_CONTEXT;
-    let user_satp = task::current_user_token();
+    let user_satp = task::current_app_token();
     let restore_va = __restore as usize - __alltraps as usize + config::TRAMPOLINE;
     unsafe {
         asm!(

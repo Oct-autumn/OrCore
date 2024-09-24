@@ -1,12 +1,17 @@
+//! os/src/mem/memory_set.rs
+//!
+//! 内存空间与逻辑段
+
 use core::{arch::asm, cmp::min};
 
-use alloc::{collections::btree_map::BTreeMap, vec::Vec};
+use alloc::{collections::btree_map::BTreeMap, format, vec::Vec};
 use bitflags::bitflags;
 use riscv::register::satp;
 
 use crate::{
     config::{self},
-    println,
+    error::{self, Error, ErrorKind, MsgType, Result},
+    new_error, println,
 };
 
 use super::{
@@ -65,7 +70,7 @@ impl LogicalSegment {
     }
 
     /// 将单个虚拟页映射到物理页上
-    fn map_single(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
+    fn map_single(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) -> Result<()> {
         let ppn: PhysPageNum;
         match self.seg_type {
             SegType::Identical => {
@@ -76,18 +81,24 @@ impl LogicalSegment {
             SegType::Framed => {
                 // 帧映射
                 // 先申请分配一个物理页，然后映射，最后将其保存到`data_frames`中维持生命周期
-                let frame = frame_alloc().expect("alloc frame failed");
-                ppn = frame.ppn;
-                self.data_frames.insert(vpn, frame);
+                if let Some(frame) = frame_alloc() {
+                    ppn = frame.ppn;
+                    self.data_frames.insert(vpn, frame);
+                } else {
+                    return Err(new_error!(
+                        ErrorKind::Mem(error::mem::ErrorKind::OutOfMemory),
+                        MsgType::String(format!("alloc frame failed for vpn={:x}", vpn.0))
+                    ));
+                }
             }
         }
         let frame_flags = PTEFlags::from_bits(self.seg_perm.bits()).unwrap(); // 将段权限转换为页表项标志位
-        page_table.map(vpn, ppn, frame_flags);
+        page_table.map(vpn, ppn, frame_flags)
     }
 
     /// 解除单个虚拟页的映射
     #[allow(unused)]
-    fn unmap_single(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) {
+    fn unmap_single(&mut self, page_table: &mut PageTable, vpn: VirtPageNum) -> Result<()> {
         match self.seg_type {
             SegType::Framed => {
                 // 帧映射
@@ -99,56 +110,81 @@ impl LogicalSegment {
                 // 直接映射不涉及帧的分配和释放，无需额外操作
             }
         }
-        page_table.unmap(vpn);
+        page_table.unmap(vpn)
     }
 
     /// 将逻辑段内的虚拟页映射到物理页上
-    pub fn map_all(&mut self, page_table: &mut PageTable) {
+    fn map_all(&mut self, page_table: &mut PageTable) -> Result<()> {
         for vpn in self.vpn_range {
             // 逐帧映射
-            self.map_single(page_table, vpn);
+            if let Err(e) = self.map_single(page_table, vpn) {
+                // 如果映射失败，解除之前的映射
+                for vpn_unmap in self.vpn_range {
+                    if vpn_unmap >= vpn {
+                        break;
+                    }
+                    assert!(self.unmap_single(page_table, vpn).is_ok()); // 可保证只解除已经映射的页，不会出错
+                }
+                return Err(e);
+            }
         }
+        Ok(())
     }
 
     /// 解除逻辑段的所有虚拟页的映射
     #[allow(unused)]
-    pub fn unmap_all(&mut self, page_table: &mut PageTable) {
+    fn unmap_all(&mut self, page_table: &mut PageTable) -> Result<()> {
         for vpn in self.vpn_range {
             // 逐帧解映射
-            self.unmap_single(page_table, vpn);
+            if let Err(e) = self.unmap_single(page_table, vpn) {
+                return Err(e);
+            }
         }
+        Ok(())
     }
 
     /// 从数据源复制数据到逻辑段
-    pub fn copy_from_slice(&mut self, page_table: &PageTable, data: &[u8]) {
+    pub fn copy_from_slice(&mut self, page_table: &PageTable, data: &[u8]) -> Result<()> {
         // 只有帧映射的逻辑段才能复制数据
-        assert_eq!(
-            self.seg_type,
-            SegType::Framed,
-            "only support copy data to framed segment"
-        );
+        if self.seg_type != SegType::Framed {
+            return Err(new_error!(
+                ErrorKind::Mem(error::mem::ErrorKind::InvalidSegmentType),
+                MsgType::StaticStr("only support copy data to framed segment")
+            ));
+        }
         // 判断数据长度是否合法
         let data_len = data.len();
         let seg_len = self.vpn_range.get_end().0 - self.vpn_range.get_start().0;
-        assert!(data_len <= seg_len * config::PAGE_SIZE, "data is too long");
+        if data_len > seg_len * config::PAGE_SIZE {
+            return Err(new_error!(
+                ErrorKind::Mem(error::mem::ErrorKind::DataTooLong),
+                MsgType::String(format!(
+                    "data is too long: data_len={}, seg_len={}",
+                    data_len, seg_len
+                ))
+            ));
+        }
 
         // 逐帧复制数据
         let mut data_ptr: usize = 0;
         for vpn in self.vpn_range {
             let data_slice = &data[data_ptr..min(data_len, data_ptr + config::PAGE_SIZE)];
-            let dst = &mut page_table
-                .translate(vpn)
-                .unwrap()
-                .ppn()
-                .get_as_bytes_array()[..data_slice.len()];
-
-            dst.copy_from_slice(data_slice);
-            data_ptr += data_slice.len();
-
-            if data_ptr >= data_len {
-                break;
+            if let Some(dst) = page_table.translate(vpn) {
+                let dst = &mut dst.ppn().get_as_bytes_array()[..data_slice.len()];
+                dst.copy_from_slice(data_slice);
+                data_ptr += data_slice.len();
+                if data_ptr >= data_len {
+                    break;
+                }
+            } else {
+                return Err(new_error!(
+                    ErrorKind::Mem(error::mem::ErrorKind::UnmappedPage),
+                    MsgType::String(format!("vpn {:?} has not been mapped", vpn))
+                ));
             }
         }
+
+        Ok(())
     }
 }
 
@@ -163,7 +199,7 @@ pub struct MemorySet {
 impl MemorySet {
     pub fn new() -> Self {
         Self {
-            page_table: PageTable::new(),
+            page_table: PageTable::new().ok().unwrap(),
             segments: Vec::new(),
         }
     }
@@ -180,13 +216,33 @@ impl MemorySet {
     }
 
     /// 将一个逻辑段加入地址空间（可进行数据拷贝）
-    fn push(&mut self, mut seg: LogicalSegment, data: Option<&[u8]>) {
+    fn push(&mut self, mut seg: LogicalSegment, data: Option<&[u8]>) -> Result<()> {
         // 将逻辑段映射到页表上
-        seg.map_all(&mut self.page_table);
+        if let Err(e) = seg.map_all(&mut self.page_table) {
+            return Err(e);
+        }
         if let Some(data) = data {
-            seg.copy_from_slice(&mut self.page_table, data);
+            if let Err(e) = seg.copy_from_slice(&mut self.page_table, data) {
+                return Err(e);
+            }
         }
         self.segments.push(seg);
+        Ok(())
+    }
+
+    /// 将一个逻辑段从地址空间中移出
+    fn remove(&mut self, start_va: VirtAddr) -> Result<()> {
+        for i in 0..self.segments.len() {
+            let seg = &mut self.segments[i];
+            if seg.vpn_range.get_start() == start_va.floor() {
+                if let Err(e) = seg.unmap_all(&mut self.page_table) {
+                    return Err(e);
+                }
+                self.segments.remove(i);
+                break;
+            }
+        }
+        Ok(())
     }
 
     /// 新建一个逻辑段，加入地址空间
@@ -195,11 +251,16 @@ impl MemorySet {
         start_va: VirtAddr,
         end_va: VirtAddr,
         permission: SegPermission,
-    ) {
+    ) -> Result<()> {
         self.push(
             LogicalSegment::new(start_va, end_va, SegType::Framed, permission),
             None,
-        );
+        )
+    }
+
+    /// 删除一个逻辑段，从地址空间中解除映射
+    pub fn remove_area(&mut self, start_va: VirtAddr) -> Result<()> {
+        self.remove(start_va)
     }
 
     /// 创建跳板页
@@ -207,11 +268,13 @@ impl MemorySet {
         extern "C" {
             fn strampoline();
         }
-        self.page_table.map(
+        if let Err(e) = self.page_table.map(
             VirtAddr::from(config::TRAMPOLINE).into(),
             PhysAddr::from(strampoline as usize).into(),
             PTEFlags::R | PTEFlags::X,
-        );
+        ) {
+            panic!("map_trampoline failed: {:?}", e);
+        }
     }
 
     /// 为内核分配地址空间
@@ -237,7 +300,7 @@ impl MemorySet {
 
         // 代码段 [stext, etext) R-X-
         println!(".text [{:#x}, {:#x}) R-X-", stext as usize, etext as usize);
-        mem_set.push(
+        if let Err(e) = mem_set.push(
             LogicalSegment::new(
                 (stext as usize).into(),
                 (etext as usize).into(),
@@ -245,14 +308,16 @@ impl MemorySet {
                 SegPermission::R | SegPermission::X,
             ),
             None,
-        );
+        ) {
+            panic!("map .text failed: {:?}", e);
+        }
 
         // 只读数据段 [srodata, erodata) R---
         println!(
             ".rodata [{:#x}, {:#x}) R---",
             srodata as usize, erodata as usize
         );
-        mem_set.push(
+        if let Err(e) = mem_set.push(
             LogicalSegment::new(
                 (srodata as usize).into(),
                 (erodata as usize).into(),
@@ -260,11 +325,13 @@ impl MemorySet {
                 SegPermission::R,
             ),
             None,
-        );
+        ) {
+            panic!("map .rodata failed: {:?}", e);
+        }
 
         // 数据段 [sdata, edata) RW--
         println!(".data [{:#x}, {:#x}) RW--", sdata as usize, edata as usize);
-        mem_set.push(
+        if let Err(e) = mem_set.push(
             LogicalSegment::new(
                 (sdata as usize).into(),
                 (edata as usize).into(),
@@ -272,14 +339,16 @@ impl MemorySet {
                 SegPermission::R | SegPermission::W,
             ),
             None,
-        );
+        ) {
+            panic!("map .data failed: {:?}", e);
+        }
 
         // 未初始化数据段 [sbss_with_stack, ebss) RW--
         println!(
             ".bss [{:#x}, {:#x}) RW--",
             sbss_with_stack as usize, ebss as usize
         );
-        mem_set.push(
+        if let Err(e) = mem_set.push(
             LogicalSegment::new(
                 (sbss_with_stack as usize).into(),
                 (ebss as usize).into(),
@@ -287,7 +356,9 @@ impl MemorySet {
                 SegPermission::R | SegPermission::W,
             ),
             None,
-        );
+        ) {
+            panic!("map .bss failed: {:?}", e);
+        }
 
         // 物理内存直接映射 [ekernel, MEMORY_END) RW--
         println!(
@@ -295,7 +366,7 @@ impl MemorySet {
             ekernel as usize,
             config::MEMORY_END
         );
-        mem_set.push(
+        if let Err(e) = mem_set.push(
             LogicalSegment::new(
                 (ekernel as usize).into(),
                 config::MEMORY_END.into(),
@@ -303,7 +374,9 @@ impl MemorySet {
                 SegPermission::R | SegPermission::W,
             ),
             None,
-        );
+        ) {
+            panic!("map physical memory failed: {:?}", e);
+        }
 
         println!("kernel memory set initialized");
 
@@ -350,10 +423,12 @@ impl MemorySet {
                 // 申请段空间
                 let seg = LogicalSegment::new(start_va, end_va, SegType::Framed, seg_perm);
                 max_end_vpn = seg.vpn_range.get_end();
-                mem_set.push(
+                if let Err(e) = mem_set.push(
                     seg,
                     Some(&elf.input[ph.offset() as usize..(ph.offset() + ph.file_size()) as usize]),
-                );
+                ) {
+                    panic!("map segment failed: {:?}", e);
+                }
             }
         }
 
@@ -362,7 +437,7 @@ impl MemorySet {
         let mut user_stack_bottom: usize = max_end_va.into();
         user_stack_bottom += config::PAGE_SIZE; // 插入一个页作为Guard Page
         let user_stack_top = user_stack_bottom + config::USER_STACK_SIZE; // 设置栈顶
-        mem_set.push(
+        if let Err(e) = mem_set.push(
             LogicalSegment::new(
                 user_stack_bottom.into(),
                 user_stack_top.into(),
@@ -370,10 +445,12 @@ impl MemorySet {
                 SegPermission::R | SegPermission::W | SegPermission::U,
             ),
             None,
-        );
+        ) {
+            panic!("map user stack failed: {:?}", e);
+        }
 
         // 映射中断上下文段（仅内核态可访问）
-        mem_set.push(
+        if let Err(e) = mem_set.push(
             LogicalSegment::new(
                 config::TRAP_CONTEXT.into(),
                 config::TRAMPOLINE.into(),
@@ -381,7 +458,9 @@ impl MemorySet {
                 SegPermission::R | SegPermission::W,
             ),
             None,
-        );
+        ) {
+            panic!("map for user trap context failed: {:?}", e);
+        }
 
         (
             mem_set,

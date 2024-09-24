@@ -4,14 +4,16 @@
 //!
 // TODO: 处理页分配异常
 
-use alloc::vec;
 use alloc::vec::Vec;
+use alloc::{format, vec};
 use bitflags::*;
 
+use crate::error::{self, Error, ErrorKind, MsgType, Result};
+use crate::new_error;
 use crate::{mem::address::VirtAddr, println};
 
 use super::{
-    address::{PhysPageNum, StepByOne, VirtPageNum},
+    address::{PhysAddr, PhysPageNum, StepByOne, VirtPageNum},
     frame_allocator::FrameTracker,
 };
 
@@ -97,40 +99,68 @@ pub struct PageTable {
 }
 
 impl PageTable {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self> {
         // 初始化页表：分配一个物理页作为页表根
-        let frame = super::frame_allocator::frame_alloc().expect("alloc frame failed");
-        PageTable {
-            root_ppn: frame.ppn,
-            frames: vec![frame],
+        if let Some(frame) = super::frame_allocator::frame_alloc() {
+            return Ok(Self {
+                root_ppn: frame.ppn,
+                frames: vec![frame],
+            });
+        } else {
+            return Err(new_error!(
+                ErrorKind::Mem(error::mem::ErrorKind::OutOfMemory),
+                MsgType::StaticStr("alloc frame failed")
+            ));
         }
     }
 
     /// 建立页表映射
     #[allow(unused)]
-    pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) {
+    pub fn map(&mut self, vpn: VirtPageNum, ppn: PhysPageNum, flags: PTEFlags) -> Result<()> {
         // 获取页表项的可变引用
-        let pte = self.find_pte_create(vpn).unwrap();
-        // 要建立映射的页表项必须是未被映射的
-        assert!(!pte.is_valid(), "vpn {:?} has been mapped", vpn);
-        // 建立映射
-        *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
+        let pte = self.find_pte_create(vpn);
+        if pte.is_err() {
+            Err(pte.err().unwrap())
+        } else {
+            let pte = pte.ok().unwrap();
+            if pte.is_valid() {
+                // 要建立映射的页表项必须是未被映射的
+                return Err(new_error!(
+                    ErrorKind::Mem(error::mem::ErrorKind::MappedPage),
+                    MsgType::String(format!("vpn {:?} has been mapped", vpn))
+                ));
+            }
+            // 建立映射
+            *pte = PageTableEntry::new(ppn, flags | PTEFlags::V);
+            Ok(())
+        }
     }
 
     /// 解除页表映射
     #[allow(unused)]
-    pub fn unmap(&mut self, vpn: VirtPageNum) {
+    pub fn unmap(&mut self, vpn: VirtPageNum) -> Result<()> {
         // 获取页表项的可变引用
-        let pte = self.find_pte_create(vpn).expect("invalid vpn");
-        // 要解除映射的页表项必须是已被映射的
-        assert!(pte.is_valid(), "vpn {:?} has not been mapped", vpn);
-        // 解除映射
-        *pte = PageTableEntry::empty();
+        let pte = self.find_pte_create(vpn);
+        if pte.is_err() {
+            Err(pte.err().unwrap())
+        } else {
+            let pte = pte.ok().unwrap();
+            if !pte.is_valid() {
+                // 要解除映射的页表项必须是已被映射的
+                return Err(new_error!(
+                    ErrorKind::Mem(error::mem::ErrorKind::UnmappedPage),
+                    MsgType::String(format!("vpn {:?} has not been mapped", vpn))
+                ));
+            }
+            // 解除映射
+            *pte = PageTableEntry::empty();
+            Ok(())
+        }
     }
 
     /// 根据虚拟页号返回页表项的可变引用    <br>
     /// 若页表项不存在则创建
-    fn find_pte_create(&mut self, vpn: VirtPageNum) -> Option<&mut PageTableEntry> {
+    fn find_pte_create(&mut self, vpn: VirtPageNum) -> Result<&mut PageTableEntry> {
         let index = vpn.indexes();
         let mut result: Option<&mut PageTableEntry> = None;
 
@@ -143,13 +173,19 @@ impl PageTable {
             }
             if !pte.is_valid() {
                 // 页表项不存在，分配一个新的物理页作为页表
-                let frame = super::frame_allocator::frame_alloc().expect("alloc frame failed");
-                *pte = PageTableEntry::new(frame.ppn, PTEFlags::V);
-                self.frames.push(frame);
+                if let Some(frame) = super::frame_allocator::frame_alloc() {
+                    *pte = PageTableEntry::new(frame.ppn, PTEFlags::V);
+                    self.frames.push(frame);
+                } else {
+                    return Err(new_error!(
+                        ErrorKind::Mem(error::mem::ErrorKind::OutOfMemory),
+                        MsgType::StaticStr("failed to alloc frame for page table")
+                    ));
+                }
             }
             ppn = pte.ppn();
         }
-        result
+        Ok(result.unwrap())
     }
 
     /// 根据虚拟页号返回页表项的引用    <br>
@@ -199,6 +235,7 @@ impl PageTable {
     }
 }
 
+/// 从虚拟地址获取缓冲区
 pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&'static mut [u8]> {
     let page_table = PageTable::from_token(token);
     let mut start = ptr as usize;
@@ -221,17 +258,29 @@ pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&
     v
 }
 
+/// 从虚拟地址获取数据结构
+pub fn translate_into<T>(token: usize, ptr: usize) -> &'static mut T {
+    let page_table = PageTable::from_token(token);
+    let vpn = VirtAddr::from(ptr as usize).floor();
+    let ppn = page_table.translate(vpn).unwrap().ppn();
+    let offset = VirtAddr::from(ptr as usize).page_offset();
+    let pa = PhysAddr::from((ppn.0 << 12) | offset);
+    unsafe { (pa.0 as *mut T).as_mut().unwrap() }
+}
+
 /// 实验：手动MMU
 pub fn mmu_test() {
     println!("running mmu_test...");
     // 建立页表
-    let mut page_table = PageTable::new();
+    let mut page_table = PageTable::new().ok().unwrap();
     println!("PageTable created, root_ppn: {:?}", page_table.root_ppn);
 
     // 申请一个虚拟地址与物理地址的映射
     let vpn = VirtPageNum::from(0x2333);
     let frame = crate::mem::frame_allocator::frame_alloc().unwrap();
-    page_table.map(vpn, frame.ppn, PTEFlags::R | PTEFlags::W);
+    if let Err(e) = page_table.map(vpn, frame.ppn, PTEFlags::R | PTEFlags::W) {
+        panic!("map failed: {:?}", e);
+    }
     println!("VPN:{:?} -> {:?}", vpn, frame.ppn);
 
     // 查找映射
@@ -243,7 +292,9 @@ pub fn mmu_test() {
     println!("Translate {:?} -> {:?}", vpn, pte.ppn());
 
     // 释放映射
-    page_table.unmap(vpn);
+    if let Err(e) = page_table.unmap(vpn) {
+        panic!("unmap failed: {:?}", e);
+    }
     println!("Unmap {:?}", vpn);
 
     // 再次查找映射

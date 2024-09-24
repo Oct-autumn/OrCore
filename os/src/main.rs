@@ -16,6 +16,7 @@ use crate::console::print;
 
 mod config;
 mod console;
+mod error;
 mod kernel_log;
 mod lang_items;
 mod loader;

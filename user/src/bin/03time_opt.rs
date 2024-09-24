@@ -11,7 +11,6 @@ use user_lib::{get_time_usec, yield_next};
 
 #[no_mangle]
 fn main() -> i32 {
-    // TODO: 调用异常！
     println!(
         "Time since boot: {:.6}s",
         get_time_usec() as f64 / 1_000_000.0

@@ -67,3 +67,11 @@ pub fn get_time_usec() -> usize {
     sys_get_time(&mut tv, 0);
     tv.usec + tv.sec * 1_000_000
 }
+
+pub fn mmap(s_va: usize, len: usize, prot: usize) -> isize {
+    sys_mmap(s_va, len, prot)
+}
+
+pub fn munmap(s_va: usize, len: usize) -> isize {
+    sys_munmap(s_va, len)
+}

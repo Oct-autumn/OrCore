@@ -11,6 +11,8 @@ use log::*;
 use switch::__switch;
 
 use crate::loader::{get_app_data, get_num_app};
+use crate::mem::address::VirtAddr;
+use crate::mem::memory_set::SegPermission;
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
 
@@ -203,6 +205,40 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 }
 
 /// 获取当前任务的页表token
-pub fn current_user_token() -> usize {
+pub fn current_app_token() -> usize {
     TASK_MANAGER.get_current_ptb_token()
+}
+
+/// 申请内存空间
+pub fn alloc_for_current(s_va: usize, len: usize, perm: SegPermission) -> isize {
+    // 申请内存
+    let s_va = VirtAddr::from(s_va);
+    let e_va = VirtAddr::from(s_va.0 + len);
+
+    let mut inner = TASK_MANAGER.inner.exclusive_access();
+    let current_task_id = inner.current_task;
+    let current_task = &mut inner.tasks[current_task_id];
+    if let Err(e) = current_task.memory_set.insert_framed_area(s_va, e_va, perm) {
+        error!("Failed to alloc memory: {:?}", e);
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
+/// 释放内存空间
+pub fn dealloc_for_current(s_va: usize, _len: usize) -> isize {
+    // 释放内存
+    let s_va = VirtAddr::from(s_va);
+    //let e_va = VirtAddr::from(s_va.0 + len);
+
+    let mut inner = TASK_MANAGER.inner.exclusive_access();
+    let current_task_id = inner.current_task;
+    let current_task = &mut inner.tasks[current_task_id];
+    if let Err(e) = current_task.memory_set.remove_area(s_va) {
+        error!("Failed to dealloc memory: {:?}", e);
+        return -1;
+    } else {
+        return 0;
+    }
 }
