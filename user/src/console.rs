@@ -8,8 +8,9 @@
 
 use core::fmt::{self, Write};
 
-use super::write;
+use super::{read, write};
 
+const STDIN: usize = 0;
 const STDOUT: usize = 1;
 
 struct Stdout; // Unit-like structs
@@ -24,6 +25,12 @@ impl Write for Stdout {
 
 pub fn print(args: fmt::Arguments) {
     Stdout.write_fmt(args).unwrap();
+}
+
+pub fn getchar() -> u8 {
+    let mut buf = [0u8; 1];
+    read(STDIN, &mut buf);
+    buf[0]
 }
 
 /// print something on the console

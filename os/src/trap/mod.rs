@@ -8,7 +8,7 @@ pub mod trap;
 
 use core::arch::asm;
 
-use log::{error, trace, warn};
+use log::{trace, warn};
 use riscv::register::{
     mtvec::TrapMode,
     scause::{self, Exception, Interrupt, Trap},
@@ -28,6 +28,8 @@ use crate::{
 /// 初始化中断处理
 pub fn init() {
     unsafe {
+        // 写入中断的入口地址，即`trap.asm`中的`__alltraps`
+        // 在中断发生时，处理器会将执行流跳转到这个地址
         stvec::write(__alltraps as usize, TrapMode::Direct);
     }
 }
@@ -36,7 +38,6 @@ pub fn init() {
 #[no_mangle]
 pub fn trap_handler() -> ! {
     set_kernel_trap_entry();
-    let cx = task::current_trap_cx();
     let scause = scause::read(); // 获取中断原因
     let stval = stval::read(); // 获取stval寄存器的值(额外参数)
     trace!(
@@ -52,29 +53,47 @@ pub fn trap_handler() -> ! {
         }
         Trap::Exception(Exception::UserEnvCall) => {
             // 来自用户程序的系统调用
-            cx.sepc += 4;
-            cx.x[10] = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]]) as usize;
+            trace!(
+                "UserEnvCall from pid: {}, syscall_id: {}, args: [{:#x}, {:#x}, {:#x}]",
+                task::current_process().unwrap().get_pid(),
+                task::current_trap_cx().x[17],
+                task::current_trap_cx().x[10],
+                task::current_trap_cx().x[11],
+                task::current_trap_cx().x[12],
+            );
+            let mut cx = task::current_trap_cx();
+            cx.sepc += 4; // 跳过当前的ecall指令（防止递归调用）
+            let result = syscall(cx.x[17], [cx.x[10], cx.x[11], cx.x[12]]) as usize;
+            cx = task::current_trap_cx(); // 在sys_exec时，cx改变了，所以要重新获取
+            cx.x[10] = result as usize;
         }
         Trap::Exception(Exception::StoreFault)
         | Trap::Exception(Exception::StorePageFault)
+        | Trap::Exception(Exception::InstructionFault)
+        | Trap::Exception(Exception::InstructionPageFault)
+        | Trap::Exception(Exception::LoadFault)
         | Trap::Exception(Exception::LoadPageFault) => {
-            // 来自用户程序的内存访问异常
-            warn!("PageFault in application, kernel killed it.");
-            task::exit_current_and_run_next();
+            // 访存错误
+            warn!(
+                "[kernel] {:?} in application, bad addr = {:#x}, bad instruction = {:#x}, core dumped.",
+                scause.cause(),
+                stval,
+                task::current_trap_cx().sepc,
+            );
+            task::exit_current_and_run_next(-2);
         }
         Trap::Exception(Exception::IllegalInstruction) => {
-            // 来自用户程序的非法指令
-            warn!("IllegalInstruction in application, kernel killed it.");
-            task::exit_current_and_run_next();
+            // 非法指令
+            warn!("[kernel] IllegalInstruction in application, core dumped.");
+            task::exit_current_and_run_next(-3);
         }
         _ => {
             // 无法处理的中断
-            error!(
+            panic!(
                 "Unsupported trap {:?}, stval = {:#x}!",
                 scause.cause(),
                 stval
             );
-            task::exit_current_and_run_next();
         }
     }
     trap_return()
@@ -116,7 +135,7 @@ fn set_user_trap_entry() {
 pub fn trap_return() -> ! {
     set_user_trap_entry();
     let trap_cx_ptr = config::TRAP_CONTEXT;
-    let user_satp = task::current_app_token();
+    let user_satp = task::current_process_token();
     let restore_va = __restore as usize - __alltraps as usize + config::TRAMPOLINE;
     unsafe {
         asm!(

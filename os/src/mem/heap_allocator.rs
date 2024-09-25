@@ -2,7 +2,7 @@
 //!
 //! 堆内存分配器
 
-use crate::{config::KERNEL_HEAP_SIZE, println};
+use crate::{config::KERNEL_HEAP_SIZE, println, sbi_call::shutdown};
 use buddy_system_allocator::LockedHeap;
 
 // 定义堆内存分配器
@@ -22,7 +22,8 @@ pub fn init_heap() {
 
 #[alloc_error_handler]
 pub fn handle_alloc_error(layout: core::alloc::Layout) -> ! {
-    panic!("Heap allocation error, layout = {:?}", layout);
+    println!("Heap allocation error, layout = {:?}", layout);
+    shutdown()
 }
 
 /// 堆内存分配器测试

@@ -1,11 +1,13 @@
 use alloc::string::String;
 
 pub mod mem;
+pub mod process;
 
 #[derive(Debug)]
 #[allow(unused)]
 pub enum ErrorKind {
     Mem(mem::ErrorKind),
+    Process(process::ErrorKind),
 }
 
 #[derive(Debug)]
@@ -42,6 +44,14 @@ impl Error {
     }
     pub fn new(kind: ErrorKind) -> Self {
         Self { kind, msg: None }
+    }
+
+    pub fn kind(&self) -> &ErrorKind {
+        &self.kind
+    }
+
+    pub fn msg(&self) -> Option<&MsgType> {
+        self.msg.as_ref()
     }
 }
 

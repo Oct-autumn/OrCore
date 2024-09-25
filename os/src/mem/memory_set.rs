@@ -6,11 +6,12 @@ use core::{arch::asm, cmp::min};
 
 use alloc::{collections::btree_map::BTreeMap, format, vec::Vec};
 use bitflags::bitflags;
+use log::error;
 use riscv::register::satp;
 
 use crate::{
     config::{self},
-    error::{self, Error, ErrorKind, MsgType, Result},
+    error::{self, process, Error, ErrorKind, MsgType, Result},
     new_error, println,
 };
 
@@ -20,7 +21,7 @@ use super::{
     page_table::{PTEFlags, PageTable, PageTableEntry},
 };
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SegType {
     /// 直接映射
     Identical,
@@ -29,6 +30,7 @@ pub enum SegType {
 }
 
 bitflags! {
+    #[derive(Clone, Copy)]
     pub struct SegPermission: u8 {
         /// 可读
         const R = 1 << 1;
@@ -169,22 +171,26 @@ impl LogicalSegment {
         let mut data_ptr: usize = 0;
         for vpn in self.vpn_range {
             let data_slice = &data[data_ptr..min(data_len, data_ptr + config::PAGE_SIZE)];
-            if let Some(dst) = page_table.translate(vpn) {
-                let dst = &mut dst.ppn().get_as_bytes_array()[..data_slice.len()];
-                dst.copy_from_slice(data_slice);
-                data_ptr += data_slice.len();
-                if data_ptr >= data_len {
-                    break;
-                }
-            } else {
-                return Err(new_error!(
-                    ErrorKind::Mem(error::mem::ErrorKind::UnmappedPage),
-                    MsgType::String(format!("vpn {:?} has not been mapped", vpn))
-                ));
+            let dst =
+                &mut page_table.translate(vpn)?.ppn().get_as_bytes_array()[..data_slice.len()];
+            dst.copy_from_slice(data_slice);
+            data_ptr += data_slice.len();
+            if data_ptr >= data_len {
+                break;
             }
         }
 
         Ok(())
+    }
+
+    /// 从已有逻辑段复刻新的逻辑段
+    pub fn from_another(seg: &LogicalSegment) -> Self {
+        Self {
+            vpn_range: seg.vpn_range.clone(),
+            data_frames: BTreeMap::new(),
+            seg_type: seg.seg_type,
+            seg_perm: seg.seg_perm,
+        }
     }
 }
 
@@ -261,6 +267,12 @@ impl MemorySet {
     /// 删除一个逻辑段，从地址空间中解除映射
     pub fn remove_area(&mut self, start_va: VirtAddr) -> Result<()> {
         self.remove(start_va)
+    }
+
+    /// 清空地址空间
+    pub fn recycle(&mut self) {
+        // 释放所有逻辑段中的帧
+        self.segments.clear();
     }
 
     /// 创建跳板页
@@ -386,17 +398,27 @@ impl MemorySet {
     /// 从elf文件为用户程序分配地址空间
     ///
     /// 返回值为（MemorySet, 用户程序的栈指针, 用户程序的入口地址）
-    pub fn new_app_from_elf(elf_data: &[u8]) -> (Self, usize, usize) {
+    pub fn new_app_from_elf(elf_data: &[u8]) -> Result<(Self, usize, usize)> {
         let mut mem_set = Self::new();
 
         mem_set.map_trampoline(); // 映射跳板代码段
 
         // 解析elf文件
-        let elf = xmas_elf::ElfFile::new(elf_data).expect("unable to parse elf.");
+        let elf = xmas_elf::ElfFile::new(elf_data).map_err(|_| {
+            new_error!(
+                ErrorKind::Process(process::ErrorKind::InvalidElf),
+                MsgType::StaticStr("invalid elf file")
+            )
+        })?;
         let header = elf.header;
         // 检查elf文件是否合法
         let magic = header.pt1.magic;
-        assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "bad elf!");
+        if magic != [0x7f, 0x45, 0x4c, 0x46] {
+            return Err(new_error!(
+                ErrorKind::Process(process::ErrorKind::InvalidElf),
+                MsgType::StaticStr("bad elf!")
+            ));
+        }
 
         let ph_count = header.pt2.ph_count(); // program header count
         let mut max_end_vpn = VirtPageNum(0);
@@ -427,7 +449,8 @@ impl MemorySet {
                     seg,
                     Some(&elf.input[ph.offset() as usize..(ph.offset() + ph.file_size()) as usize]),
                 ) {
-                    panic!("map segment failed: {:?}", e);
+                    error!("map segment failed: {:?}", e);
+                    return Err(e);
                 }
             }
         }
@@ -446,7 +469,8 @@ impl MemorySet {
             ),
             None,
         ) {
-            panic!("map user stack failed: {:?}", e);
+            error!("map user stack failed: {:?}", e);
+            return Err(e);
         }
 
         // 映射中断上下文段（仅内核态可访问）
@@ -459,18 +483,37 @@ impl MemorySet {
             ),
             None,
         ) {
-            panic!("map for user trap context failed: {:?}", e);
+            error!("map for user trap context failed: {:?}", e);
+            return Err(e);
         }
 
-        (
+        Ok((
             mem_set,
             user_stack_top,
             elf.header.pt2.entry_point() as usize,
-        )
+        ))
+    }
+
+    /// 从已有地址空间复刻新的地址空间
+    pub fn from_existed(mem_set: &MemorySet) -> Result<Self> {
+        let mut new_mem_set = Self::new();
+        new_mem_set.map_trampoline();
+        for seg in mem_set.segments.iter() {
+            let new_seg = LogicalSegment::from_another(seg);
+            new_mem_set.push(new_seg, None)?;
+            for vpn in seg.vpn_range {
+                let src_ppn = mem_set.page_table.translate(vpn)?.ppn();
+                let dst_ppn = new_mem_set.page_table.translate(vpn)?.ppn();
+                dst_ppn
+                    .get_as_bytes_array()
+                    .copy_from_slice(src_ppn.get_as_bytes_array());
+            }
+        }
+        Ok(new_mem_set)
     }
 
     /// 将虚拟页号转换为对应的物理页号
-    pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
+    pub fn translate(&self, vpn: VirtPageNum) -> Result<PageTableEntry> {
         self.page_table.translate(vpn)
     }
 

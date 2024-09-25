@@ -46,18 +46,28 @@ fn init_bss() {
 
 #[no_mangle] //disable mangle of func name 'rust_main'
 pub fn rust_main() -> ! {
-    init_bss(); //初始化bss段
-    println!("[Test] Hello, world!"); // English test
-    kernel_log::init();
+    //初始化bss段
+    init_bss();
+
+    // 输出内核版本信息
+    println!("< OrCore build: {} >", env!("CARGO_PKG_VERSION"),);
 
     // 初始化内存管理子模块
     println!("Initializing memory management...");
     mem::init();
+
     // 初始化日志子模块
     println!("Initializing log module...");
+    kernel_log::init();
+
     // 初始化系统调用子模块
     info!("Init trap handler...");
     trap::init();
+
+    // 初始化进程管理子模块
+    loader::list_apps(); // 列出所有App
+    task::add_initproc(); // 添加initproc任务
+
     // 初始化时钟中断
     info!("Init time interrupt...");
     trap::enable_timer_interrupt(); // 启用时钟中断
@@ -65,7 +75,7 @@ pub fn rust_main() -> ! {
 
     // kernel初始化完成，开始运行第一个任务
     info!("System init finished, start first task...");
-    task::run_first_task();
+    task::run_tasks(); // 运行任务
 
     panic!("Unreachable in rust_main!");
 }

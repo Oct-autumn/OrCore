@@ -26,6 +26,7 @@ fn insert_app_data() -> Result<()> {
         .collect();
     apps.sort();
 
+    // 写入app数量和起始地址
     writeln!(
         f,
         r#"
@@ -36,12 +37,23 @@ _num_app:
     .quad {}"#,
         apps.len()
     )?;
-
     for i in 0..apps.len() {
         writeln!(f, r#"    .quad app_{}_start"#, i)?;
     }
     writeln!(f, r#"    .quad app_{}_end"#, apps.len() - 1)?;
 
+    // 写入app名称
+    writeln!(
+        f,
+        r#"
+    .global _app_names
+    _app_names:"#
+    )?;
+    for app in &apps {
+        writeln!(f, r#"    .string "{}""#, app)?;
+    }
+
+    // 写入app数据
     for (idx, app) in apps.iter().enumerate() {
         println!("app_{}: {}", idx, app);
         writeln!(

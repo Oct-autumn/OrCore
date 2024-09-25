@@ -6,6 +6,9 @@
 
 use core::panic::PanicInfo;
 
+use alloc::format;
+use alloc::string::String;
+
 use crate::println;
 use crate::sbi_call::shutdown;
 use crate::util::time::get_time_usec;
@@ -22,8 +25,21 @@ fn panic(info: &PanicInfo) -> ! {
             info.message()
         );
     } else {
-        println!("\x1b[91Panic!\t{}\x1b[0m", info.message());
+        println!(
+            "\x1b[91Panic!\t{}\n{}\x1b[0m",
+            info.message(),
+            external_info()
+        );
     }
 
     shutdown()
+}
+
+/// 额外信息
+fn external_info() -> String {
+    let mut info = String::new();
+
+    info.push_str(format!("< OrCore build: {} >", env!("CARGO_PKG_VERSION")).as_str());
+
+    info
 }

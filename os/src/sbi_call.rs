@@ -50,6 +50,10 @@ pub fn console_putchar(c: usize) {
     sbi_call(SBI_CONSOLE_PUTCHAR, 0, c, 0, 0);
 }
 
+pub fn console_getchar() -> usize {
+    sbi_call(SBI_CONSOLE_GETCHAR, 0, 0, 0, 0)
+}
+
 /// shutdown the machine gracefully
 pub fn shutdown() -> ! {
     warn!("Shutdown the machine gracefully.");

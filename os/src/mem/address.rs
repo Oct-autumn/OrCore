@@ -173,6 +173,13 @@ impl From<VirtPageNum> for VirtAddr {
 
 // For kernel memory access
 
+impl PhysAddr {
+    /// 对内存地址获取T类型的可变引用
+    pub fn get_mut<T>(&self) -> &'static mut T {
+        unsafe { (self.0 as *mut T).as_mut().unwrap() }
+    }
+}
+
 impl PhysPageNum {
     /// 将物理页视为页表，并获取其中的页表项数据的可变引用
     pub fn get_as_pte_array(&self) -> &'static mut [PageTableEntry] {

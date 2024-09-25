@@ -2,8 +2,9 @@
 //!
 //! 页表相关的数据结构和方法实现
 //!
-// TODO: 处理页分配异常
+// TODO: 更新异常处理逻辑
 
+use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use bitflags::*;
@@ -190,7 +191,7 @@ impl PageTable {
 
     /// 根据虚拟页号返回页表项的引用    <br>
     /// 若页表项不存在则返回None
-    fn find_pte(&self, vpn: VirtPageNum) -> Option<&PageTableEntry> {
+    fn find_pte(&self, vpn: VirtPageNum) -> Result<&PageTableEntry> {
         let index = vpn.indexes();
         let mut result: Option<&PageTableEntry> = None;
 
@@ -200,16 +201,24 @@ impl PageTable {
             if i == 2 {
                 if pte.is_valid() {
                     result = Some(pte);
+                } else {
+                    return Err(new_error!(
+                        ErrorKind::Mem(error::mem::ErrorKind::UnmappedPage),
+                        MsgType::String(format!("vpn {:?} has not been mapped", vpn))
+                    ));
                 }
                 break;
             }
             if !pte.is_valid() {
-                // 页表项不存在，直接返回None
-                return None;
+                // 页表项不存在，报错
+                return Err(new_error!(
+                    ErrorKind::Mem(error::mem::ErrorKind::UnmappedPage),
+                    MsgType::String(format!("vpn {:?} has not been mapped", vpn))
+                ));
             }
             ppn = pte.ppn();
         }
-        result
+        Ok(result.unwrap())
     }
 
     // 手动MMU
@@ -223,8 +232,17 @@ impl PageTable {
     }
 
     /// 从虚拟页号查找页表项
-    pub fn translate(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
+    pub fn translate(&self, vpn: VirtPageNum) -> Result<PageTableEntry> {
         self.find_pte(vpn).map(|pte| pte.clone())
+    }
+
+    /// 从虚拟地址翻译出物理地址
+    pub fn translate_va(&self, va: VirtAddr) -> Result<PhysAddr> {
+        let vpn = va.floor();
+        let offset = va.page_offset();
+        let pte = self.translate(vpn)?;
+
+        Ok(PhysAddr::from((pte.ppn().0 << 12) | offset))
     }
 
     /// 以satp数据格式取出页表（根页表）
@@ -236,7 +254,11 @@ impl PageTable {
 }
 
 /// 从虚拟地址获取缓冲区
-pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&'static mut [u8]> {
+pub fn translated_byte_buffer(
+    token: usize,
+    ptr: *const u8,
+    len: usize,
+) -> Result<Vec<&'static mut [u8]>> {
     let page_table = PageTable::from_token(token);
     let mut start = ptr as usize;
     let end = start + len;
@@ -244,7 +266,7 @@ pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&
     while start < end {
         let start_va = VirtAddr::from(start);
         let mut vpn = start_va.floor();
-        let ppn = page_table.translate(vpn).unwrap().ppn();
+        let ppn = page_table.translate(vpn)?.ppn();
         vpn.step();
         let mut end_va: VirtAddr = vpn.into();
         end_va = end_va.min(VirtAddr::from(end));
@@ -255,17 +277,38 @@ pub fn translated_byte_buffer(token: usize, ptr: *const u8, len: usize) -> Vec<&
         }
         start = end_va.into();
     }
-    v
+    Ok(v)
+}
+
+/// 从虚拟地址获取字符串
+pub fn translated_str(token: usize, ptr: *const u8) -> Result<String> {
+    let page_table = PageTable::from_token(token);
+    let mut string = String::new();
+    let mut va = ptr as usize;
+    loop {
+        let ch: u8 = *(page_table.translate_va(VirtAddr::from(va))?.get_mut());
+        if ch == 0 {
+            break;
+        } else {
+            string.push(ch as char);
+            va += 1;
+        }
+    }
+    Ok(string)
 }
 
 /// 从虚拟地址获取数据结构
-pub fn translate_into<T>(token: usize, ptr: usize) -> &'static mut T {
+pub fn translate_into<T>(token: usize, ptr: usize) -> Result<&'static mut T> {
     let page_table = PageTable::from_token(token);
     let vpn = VirtAddr::from(ptr as usize).floor();
     let ppn = page_table.translate(vpn).unwrap().ppn();
     let offset = VirtAddr::from(ptr as usize).page_offset();
     let pa = PhysAddr::from((ppn.0 << 12) | offset);
-    unsafe { (pa.0 as *mut T).as_mut().unwrap() }
+    unsafe { Ok((pa.0 as *mut T).as_mut().unwrap()) }
+}
+
+pub fn translate_into_mut_i32(token: usize, ptr: usize) -> Result<&'static mut i32> {
+    translate_into::<i32>(token, ptr)
 }
 
 /// 实验：手动MMU
@@ -299,7 +342,7 @@ pub fn mmu_test() {
 
     // 再次查找映射
     let pte = page_table.translate(vpn);
-    assert!(pte.is_none());
+    assert!(pte.is_err());
 
     println!("mmu_test passed!");
 }

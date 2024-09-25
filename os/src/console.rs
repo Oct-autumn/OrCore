@@ -10,7 +10,7 @@ use core::fmt::{self, Write};
 
 use crate::sbi_call::console_putchar;
 
-struct Stdout;  // Unit-like structs
+struct Stdout; // Unit-like structs
 
 impl Write for Stdout {
     // impl of Write::write_str for Stdout
