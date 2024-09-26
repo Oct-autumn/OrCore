@@ -4,7 +4,7 @@
 
 use alloc::{collections::vec_deque::VecDeque, vec::Vec};
 
-use crate::{config::MEMORY_END, mem::address::PhysAddr, println, sync::UPSafeCell};
+use crate::{config::MEMORY_END, mem::address::PhysAddr, println, sync::SpinLock};
 
 use super::address::PhysPageNum;
 
@@ -107,8 +107,8 @@ type FrameAllocatorImpl = StackFrameAllocator;
 
 // 全局的FrameAllocator实例
 lazy_static! {
-    pub static ref FRAME_ALLOCATOR: UPSafeCell<FrameAllocatorImpl> =
-        unsafe { UPSafeCell::new(FrameAllocatorImpl::new()) };
+    pub static ref FRAME_ALLOCATOR: SpinLock<FrameAllocatorImpl> =
+        unsafe { SpinLock::new(FrameAllocatorImpl::new()) };
 }
 
 /// 初始化页帧分配器
@@ -116,7 +116,7 @@ pub fn init_frame_allocator() {
     extern "C" {
         fn ekernel();
     }
-    FRAME_ALLOCATOR.exclusive_access().init(
+    FRAME_ALLOCATOR.lock().init(
         PhysAddr::from(ekernel as usize).ceil(), // 从内核结束地址开始分配（标识符见os/src/linker-qemu(k210).ld）
         PhysAddr::from(MEMORY_END).floor(),      // 到内存结束地址结束分配
     );
@@ -127,14 +127,14 @@ pub fn init_frame_allocator() {
 /// 若分配失败，则返回None
 pub fn frame_alloc() -> Option<FrameTracker> {
     FRAME_ALLOCATOR
-        .exclusive_access()
+        .lock()
         .alloc()
         .map(|ppn| FrameTracker::new(ppn))
 }
 
 /// 回收一个物理页
 fn frame_dealloc(ppn: PhysPageNum) {
-    FRAME_ALLOCATOR.exclusive_access().dealloc(ppn);
+    FRAME_ALLOCATOR.lock().dealloc(ppn);
 }
 
 /// 页帧分配器测试  <br>
@@ -143,7 +143,7 @@ fn frame_dealloc(ppn: PhysPageNum) {
 pub fn frame_alloc_test() {
     println!("running frame_test...");
 
-    let (s, e) = FRAME_ALLOCATOR.exclusive_access().get_range();
+    let (s, e) = FRAME_ALLOCATOR.lock().get_range();
     println!("all available frame range: [{:x} - {:x}]", s, e);
 
     let mut alloced_frames = Vec::new();

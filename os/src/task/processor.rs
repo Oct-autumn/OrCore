@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 use lazy_static::lazy_static;
 
-use crate::sync::UPSafeCell;
+use crate::sync::SpinLock;
 
 use super::{
     context::ProcessContext,
@@ -11,14 +11,14 @@ use super::{
 };
 
 lazy_static! {
-    pub static ref PROCESSOR: UPSafeCell<Processor> = unsafe { UPSafeCell::new(Processor::new()) };
+    pub static ref PROCESSOR: SpinLock<Processor> = unsafe { SpinLock::new(Processor::new()) };
 }
 
 /// idle任务：当没有任务可以运行时，运行idle任务<br>
 /// 该任务将尝试从进程管理器中获取一个ready的进程并运行它。
 pub fn run_tasks() {
     loop {
-        let mut processor = PROCESSOR.exclusive_access();
+        let mut processor = PROCESSOR.lock();
 
         // 尝试从进程管理器中获取一个进程
         if let Some(process) = fetch_process() {
@@ -41,7 +41,7 @@ pub fn run_tasks() {
 /// 调度函数：当发生进程调度时，运行调度函数<br>
 /// 将当前任务切换到idle任务
 pub fn schedule(switched_task_cx_ptr: *mut ProcessContext) {
-    let mut processor = PROCESSOR.exclusive_access();
+    let mut processor = PROCESSOR.lock();
     let idle_task_cx_ptr = processor.get_idle_task_cx_ptr();
     drop(processor);
     unsafe {
@@ -82,12 +82,12 @@ impl Processor {
 
 /// 取出cpu当前的进程
 pub fn take_current_process() -> Option<Arc<ProcessControlBlock>> {
-    PROCESSOR.exclusive_access().take_current()
+    PROCESSOR.lock().take_current()
 }
 
 /// 获取当前进程PCB指针的一份拷贝
 pub fn current_process() -> Option<Arc<ProcessControlBlock>> {
-    PROCESSOR.exclusive_access().current()
+    PROCESSOR.lock().current()
 }
 
 /// 获取当前进程的页表token

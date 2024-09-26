@@ -1,4 +1,4 @@
-use crate::sync::UPSafeCell;
+use crate::sync::SpinLock;
 
 use alloc::{collections::vec_deque::VecDeque, sync::Arc};
 use lazy_static::lazy_static;
@@ -6,8 +6,8 @@ use lazy_static::lazy_static;
 use super::process::ProcessControlBlock;
 
 lazy_static! {
-    static ref PROCESS_MANAGER: UPSafeCell<ProcessManager> =
-        unsafe { UPSafeCell::new(ProcessManager::new()) };
+    static ref PROCESS_MANAGER: SpinLock<ProcessManager> =
+        unsafe { SpinLock::new(ProcessManager::new()) };
 }
 
 /// 任务管理器
@@ -39,9 +39,9 @@ impl ProcessManager {
 }
 
 pub fn add_ready_process(task: Arc<ProcessControlBlock>) {
-    PROCESS_MANAGER.exclusive_access().add(task);
+    PROCESS_MANAGER.lock().add(task);
 }
 
 pub fn fetch_process() -> Option<Arc<ProcessControlBlock>> {
-    PROCESS_MANAGER.exclusive_access().fetch()
+    PROCESS_MANAGER.lock().fetch()
 }

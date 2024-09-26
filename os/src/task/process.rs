@@ -1,7 +1,5 @@
 //! os/src/task/task.rs
 
-use core::cell::RefMut;
-
 use alloc::{sync::Arc, sync::Weak, vec::Vec};
 use log::*;
 
@@ -13,7 +11,7 @@ use crate::{
         memory_set::MemorySet,
         KERNEL_SPACE,
     },
-    sync::UPSafeCell,
+    sync::{SpinLock, SpinLockGuard},
     task::pid,
     trap::{trap_handler, TrapContext},
 };
@@ -73,7 +71,7 @@ pub struct ProcessControlBlock {
     /// 内核栈
     pub kernel_stack: KernelStack,
     /// 进程控制块内部数据（进程安全）
-    inner: UPSafeCell<ProcessControlBlockInner>,
+    inner: SpinLock<ProcessControlBlockInner>,
 }
 
 impl ProcessControlBlockInner {
@@ -134,7 +132,7 @@ impl ProcessControlBlock {
             pid,
             kernel_stack,
             inner: unsafe {
-                UPSafeCell::new(ProcessControlBlockInner {
+                SpinLock::new(ProcessControlBlockInner {
                     trap_cx_ppn,
                     base_size: user_sp,
                     process_cx: ProcessContext::goto_trap_return(kernel_stack_top),
@@ -152,7 +150,7 @@ impl ProcessControlBlock {
         *trap_cx = TrapContext::app_init_context(
             entry_point,
             user_sp,
-            KERNEL_SPACE.exclusive_access().token(),
+            KERNEL_SPACE.lock().token(),
             kernel_stack_top,
             trap_handler as usize,
         );
@@ -186,7 +184,7 @@ impl ProcessControlBlock {
         *trap_cx = TrapContext::app_init_context(
             entry_point,
             user_sp,
-            KERNEL_SPACE.exclusive_access().token(),
+            KERNEL_SPACE.lock().token(),
             self.kernel_stack.get_top(),
             trap_handler as usize,
         );
@@ -215,7 +213,7 @@ impl ProcessControlBlock {
             pid,
             kernel_stack,
             inner: unsafe {
-                UPSafeCell::new(ProcessControlBlockInner {
+                SpinLock::new(ProcessControlBlockInner {
                     trap_cx_ppn,
                     base_size: inner.base_size,
                     process_cx: ProcessContext::goto_trap_return(kernel_stack_top),
@@ -239,8 +237,8 @@ impl ProcessControlBlock {
     }
 
     /// 获取内部数据的共享引用
-    pub fn inner_exclusive_access(&self) -> RefMut<'_, ProcessControlBlockInner> {
-        self.inner.exclusive_access()
+    pub fn inner_exclusive_access(&self) -> SpinLockGuard<'_, ProcessControlBlockInner> {
+        self.inner.lock()
     }
 
     /// 获取进程ID

@@ -1,11 +1,11 @@
 use alloc::collections::vec_deque::VecDeque;
 use lazy_static::lazy_static;
 
-use crate::{config, sync::UPSafeCell};
+use crate::{config, sync::SpinLock};
 
 lazy_static! {
-    static ref PID_ALLOCATOR: UPSafeCell<PidAllocator> =
-        unsafe { UPSafeCell::new(PidAllocator::new()) };
+    static ref PID_ALLOCATOR: SpinLock<PidAllocator> =
+        unsafe { SpinLock::new(PidAllocator::new()) };
 }
 
 pub struct PidHandle(pub usize);
@@ -24,7 +24,7 @@ impl From<PidHandle> for usize {
 
 impl Drop for PidHandle {
     fn drop(&mut self) {
-        PID_ALLOCATOR.exclusive_access().dealloc(self.0);
+        PID_ALLOCATOR.lock().dealloc(self.0);
     }
 }
 
@@ -65,11 +65,11 @@ impl PidAllocator {
 
 /// 分配一个PID
 pub fn alloc_pid() -> PidHandle {
-    PID_ALLOCATOR.exclusive_access().alloc()
+    PID_ALLOCATOR.lock().alloc()
 }
 
 /// 释放一个PID
 #[allow(unused)]
 pub fn dealloc_pid(pid: usize) {
-    PID_ALLOCATOR.exclusive_access().dealloc(pid);
+    PID_ALLOCATOR.lock().dealloc(pid);
 }

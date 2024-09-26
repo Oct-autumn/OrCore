@@ -9,4 +9,6 @@
 /user/build/
 /user/Cargo.lock
 
+/.VSCodeCounter/
+
 /tools/

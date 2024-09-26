@@ -53,6 +53,8 @@ pub fn main() -> i32 {
                     print!("{}{}", BS as char, &line.as_str()[line_ptr..]);
                 }
             }
+            // TODO: 拦截上下移动，实现历史命令
+            // TODO: 实现光标左右移动
             _ => {
                 // 其他字符
                 print!("{}", c as char);

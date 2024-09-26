@@ -8,12 +8,12 @@ use alloc::sync::Arc;
 use lazy_static::lazy_static;
 use memory_set::MemorySet;
 
-use crate::{println, sync::UPSafeCell};
+use crate::{println, sync::SpinLock};
 
 lazy_static! {
     /// 内核内存空间
-    pub static ref KERNEL_SPACE: Arc<UPSafeCell<MemorySet>> =
-        Arc::new(unsafe { UPSafeCell::new(MemorySet::new_kernel()) });
+    pub static ref KERNEL_SPACE: Arc<SpinLock<MemorySet>> =
+        Arc::new(unsafe { SpinLock::new(MemorySet::new_kernel()) });
 }
 
 pub fn init() {
@@ -30,7 +30,7 @@ pub fn init() {
     page_table::mmu_test();
 
     // 启用内核内存空间
-    KERNEL_SPACE.exclusive_access().activate();
+    KERNEL_SPACE.lock().activate();
     memory_set::remap_test();
     println!("Memory management initialized.");
 }
