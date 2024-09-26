@@ -25,7 +25,7 @@ impl Drop for KernelStack {
     fn drop(&mut self) {
         let (bottom, _) = kernel_stack_position(self.pid);
         KERNEL_SPACE
-            .lock()
+            .write()
             .remove_area(bottom.into())
             .map_err(|e| {
                 // 内核栈释放失败，直接panic
@@ -41,7 +41,7 @@ impl KernelStack {
         let pid = pid_handle.0;
         let (kernel_stack_bottom, kernel_stack_top) = kernel_stack_position(pid);
         // 为内核栈分配空间并映射进内核页表
-        KERNEL_SPACE.lock().insert_framed_area(
+        KERNEL_SPACE.write().insert_framed_area(
             kernel_stack_bottom.into(),
             kernel_stack_top.into(),
             SegPermission::R | SegPermission::W,

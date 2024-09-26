@@ -1,8 +1,5 @@
 //! os/src/sync/spin_lock.rs
 //! 自旋锁
-//!
-//! TODO: 改进为智能锁（支持锁升级）
-//! 锁升级：
 
 use core::{cell::UnsafeCell, sync::atomic::AtomicBool};
 
@@ -17,7 +14,7 @@ pub struct SpinLock<T> {
 unsafe impl<T> Sync for SpinLock<T> {}
 
 impl<T> SpinLock<T> {
-    pub unsafe fn new(value: T) -> Self {
+    pub fn new(value: T) -> Self {
         Self {
             locked: AtomicBool::new(false),
             inner: UnsafeCell::new(value),
@@ -34,7 +31,9 @@ impl<T> SpinLock<T> {
                 core::sync::atomic::Ordering::Relaxed,
             )
             .is_err()
-        {}
+        {
+            // 自旋等待锁释放
+        }
         SpinLockGuard { lock: self }
     }
 }

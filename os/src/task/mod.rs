@@ -35,7 +35,7 @@ pub fn suspend_current_and_run_next() {
     // 取出当前任务
     let cp = processor::take_current_process().unwrap();
 
-    let mut cpi = cp.inner_exclusive_access();
+    let mut cpi = cp.inner_write();
     // 获取当前任务的上下文指针
     let process_cx_ptr = &mut cpi.process_cx as *mut ProcessContext;
     // 将当前任务标记为“就绪”
@@ -53,15 +53,15 @@ pub fn suspend_current_and_run_next() {
 /// 退出当前任务并运行下一个任务
 pub fn exit_current_and_run_next(exit_code: i32) {
     let cp = processor::take_current_process().unwrap();
-    let mut cpi = cp.inner_exclusive_access();
+    let mut cpi = cp.inner_write();
     cpi.process_status = process::ProcessStatus::Zombie; // 将当前任务标记为“僵尸态”
     cpi.exit_code = exit_code; // 设置返回值
 
     {
         // 为了使当前进程的子进程在父进程结束后仍然运行，将INITPROC设置为其父进程
-        let mut initproc_inner = INITPROC.inner_exclusive_access();
+        let mut initproc_inner = INITPROC.inner_write();
         for child in cpi.children.iter() {
-            child.inner_exclusive_access().parent = Some(Arc::downgrade(&INITPROC));
+            child.inner_write().parent = Some(Arc::downgrade(&INITPROC));
             initproc_inner.children.push(child.clone());
         }
     }
@@ -80,6 +80,6 @@ pub fn exit_current_and_run_next(exit_code: i32) {
 
 /// 添加一个任务到就绪队列
 pub fn add_task(task: Arc<ProcessControlBlock>) {
-    assert!(task.inner_exclusive_access().process_status == process::ProcessStatus::Ready);
+    assert!(task.inner_read().process_status == process::ProcessStatus::Ready);
     manager::add_ready_process(task);
 }

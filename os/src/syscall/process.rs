@@ -48,7 +48,7 @@ pub fn sys_fork() -> isize {
         Ok(new_task) => {
             let new_pid = new_task.pid.0;
             // 修改返回值，对于子进程要返回0
-            let trap_cx = new_task.inner_exclusive_access().get_trap_cx();
+            let trap_cx = new_task.inner_read().get_trap_cx();
             trap_cx.x[10] = 0; //x[10] is a0 reg
                                // add new task to scheduler
             task::add_task(new_task);
@@ -84,7 +84,7 @@ pub fn sys_fork() -> isize {
 pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
     let cp = task::current_process().unwrap();
 
-    let cpi = cp.inner_exclusive_access();
+    let cpi = cp.inner_read();
     if cpi
         .children
         .iter()
@@ -96,13 +96,14 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
     }
 
     // 查找是否有对应的僵尸子进程
-    let target_pcb = cpi.children.iter().find(|pcb| {
-        pcb.inner_exclusive_access().is_zombie() && (pid == -1 || pid as usize == pcb.get_pid())
-    });
+    let target_pcb = cpi
+        .children
+        .iter()
+        .find(|pcb| pcb.inner_read().is_zombie() && (pid == -1 || pid as usize == pcb.get_pid()));
 
     if let Some(target_cp) = target_pcb {
         // 找到对应的僵尸子进程
-        let target_cpi = target_cp.inner_exclusive_access();
+        let target_cpi = target_cp.inner_read();
         assert_eq!(Arc::strong_count(target_cp), 1);
         let ec = target_cpi.exit_code;
         let ec_ret_res = translate_into_mut_i32(cpi.memory_set.token(), exit_code_ptr as usize);

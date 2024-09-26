@@ -105,10 +105,12 @@ impl Drop for FrameTracker {
 
 type FrameAllocatorImpl = StackFrameAllocator;
 
-// 全局的FrameAllocator实例
 lazy_static! {
+    /// 帧分配器实例
+    ///
+    /// 鉴于帧分配器基本没有读写竞争，因此使用自旋锁减小开销
     pub static ref FRAME_ALLOCATOR: SpinLock<FrameAllocatorImpl> =
-        unsafe { SpinLock::new(FrameAllocatorImpl::new()) };
+        SpinLock::new(FrameAllocatorImpl::new());
 }
 
 /// 初始化页帧分配器

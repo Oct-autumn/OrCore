@@ -4,8 +4,10 @@ use lazy_static::lazy_static;
 use crate::{config, sync::SpinLock};
 
 lazy_static! {
-    static ref PID_ALLOCATOR: SpinLock<PidAllocator> =
-        unsafe { SpinLock::new(PidAllocator::new()) };
+    /// PID分配器实例
+    ///
+    /// 由于PID分配器基本没有读写竞争，因此使用自旋锁减小开销
+    static ref PID_ALLOCATOR: SpinLock<PidAllocator> = SpinLock::new(PidAllocator::new());
 }
 
 pub struct PidHandle(pub usize);

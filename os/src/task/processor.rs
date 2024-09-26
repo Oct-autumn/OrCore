@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 use lazy_static::lazy_static;
 
-use crate::sync::SpinLock;
+use crate::sync::RwLock;
 
 use super::{
     context::ProcessContext,
@@ -11,21 +11,22 @@ use super::{
 };
 
 lazy_static! {
-    pub static ref PROCESSOR: SpinLock<Processor> = unsafe { SpinLock::new(Processor::new()) };
+    /// 处理器实例
+    pub static ref PROCESSOR: RwLock<Processor> = RwLock::new(Processor::new());
 }
 
 /// idle任务：当没有任务可以运行时，运行idle任务<br>
 /// 该任务将尝试从进程管理器中获取一个ready的进程并运行它。
 pub fn run_tasks() {
     loop {
-        let mut processor = PROCESSOR.lock();
+        let mut processor = PROCESSOR.write();
 
         // 尝试从进程管理器中获取一个进程
         if let Some(process) = fetch_process() {
             // 成功获取，切换到该进程
 
             let idle_task_cx_ptr = processor.get_idle_task_cx_ptr();
-            let mut process_inner = process.inner_exclusive_access();
+            let mut process_inner = process.inner_write();
             let next_task_cx_ptr = &process_inner.process_cx as *const ProcessContext;
             process_inner.process_status = ProcessStatus::Running; // 设置进程状态为Running
             drop(process_inner);
@@ -41,7 +42,7 @@ pub fn run_tasks() {
 /// 调度函数：当发生进程调度时，运行调度函数<br>
 /// 将当前任务切换到idle任务
 pub fn schedule(switched_task_cx_ptr: *mut ProcessContext) {
-    let mut processor = PROCESSOR.lock();
+    let mut processor = PROCESSOR.write();
     let idle_task_cx_ptr = processor.get_idle_task_cx_ptr();
     drop(processor);
     unsafe {
@@ -82,26 +83,20 @@ impl Processor {
 
 /// 取出cpu当前的进程
 pub fn take_current_process() -> Option<Arc<ProcessControlBlock>> {
-    PROCESSOR.lock().take_current()
+    PROCESSOR.write().take_current()
 }
 
 /// 获取当前进程PCB指针的一份拷贝
 pub fn current_process() -> Option<Arc<ProcessControlBlock>> {
-    PROCESSOR.lock().current()
+    PROCESSOR.read().current()
 }
 
 /// 获取当前进程的页表token
 pub fn current_process_token() -> usize {
-    current_process()
-        .unwrap()
-        .inner_exclusive_access()
-        .get_user_token()
+    current_process().unwrap().inner_read().get_user_token()
 }
 
 /// 获取当前进程的中断上下文
 pub fn current_trap_cx() -> &'static mut crate::trap::TrapContext {
-    current_process()
-        .unwrap()
-        .inner_exclusive_access()
-        .get_trap_cx()
+    current_process().unwrap().inner_read().get_trap_cx()
 }

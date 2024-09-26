@@ -11,7 +11,7 @@ use crate::{
         memory_set::MemorySet,
         KERNEL_SPACE,
     },
-    sync::{SpinLock, SpinLockGuard},
+    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
     task::pid,
     trap::{trap_handler, TrapContext},
 };
@@ -71,7 +71,7 @@ pub struct ProcessControlBlock {
     /// 内核栈
     pub kernel_stack: KernelStack,
     /// 进程控制块内部数据（进程安全）
-    inner: SpinLock<ProcessControlBlockInner>,
+    inner: RwLock<ProcessControlBlockInner>,
 }
 
 impl ProcessControlBlockInner {
@@ -94,6 +94,17 @@ impl ProcessControlBlockInner {
     /// 快捷判断：进程是否为僵尸态
     pub fn is_zombie(&self) -> bool {
         self.process_status == ProcessStatus::Zombie
+    }
+
+    /// 快捷判断：进程是否为就绪态
+    pub fn is_ready(&self) -> bool {
+        self.process_status == ProcessStatus::Ready
+    }
+
+    /// 快捷判断：进程是否为阻塞态
+    #[allow(unused)]
+    pub fn is_blocked(&self) -> bool {
+        self.process_status == ProcessStatus::Blocked
     }
 }
 
@@ -131,26 +142,24 @@ impl ProcessControlBlock {
         let pcb = Self {
             pid,
             kernel_stack,
-            inner: unsafe {
-                SpinLock::new(ProcessControlBlockInner {
-                    trap_cx_ppn,
-                    base_size: user_sp,
-                    process_cx: ProcessContext::goto_trap_return(kernel_stack_top),
-                    process_status: ProcessStatus::Ready,
-                    memory_set,
-                    parent: None,
-                    children: Vec::new(),
-                    exit_code: 0,
-                })
-            },
+            inner: RwLock::new(ProcessControlBlockInner {
+                trap_cx_ppn,
+                base_size: user_sp,
+                process_cx: ProcessContext::goto_trap_return(kernel_stack_top),
+                process_status: ProcessStatus::Ready,
+                memory_set,
+                parent: None,
+                children: Vec::new(),
+                exit_code: 0,
+            }),
         };
 
         // 初始化中断上下文
-        let trap_cx = pcb.inner_exclusive_access().get_trap_cx();
+        let trap_cx = pcb.inner_read().get_trap_cx();
         *trap_cx = TrapContext::app_init_context(
             entry_point,
             user_sp,
-            KERNEL_SPACE.lock().token(),
+            KERNEL_SPACE.read().token(),
             kernel_stack_top,
             trap_handler as usize,
         );
@@ -173,7 +182,7 @@ impl ProcessControlBlock {
             .translate(VirtAddr::from(config::TRAP_CONTEXT).into())?
             .ppn();
 
-        let mut inner = self.inner_exclusive_access();
+        let mut inner = self.inner_write();
         // 更换内存空间
         inner.memory_set = memory_set;
         // 更换中断上下文
@@ -184,7 +193,7 @@ impl ProcessControlBlock {
         *trap_cx = TrapContext::app_init_context(
             entry_point,
             user_sp,
-            KERNEL_SPACE.lock().token(),
+            KERNEL_SPACE.read().token(),
             self.kernel_stack.get_top(),
             trap_handler as usize,
         );
@@ -193,7 +202,7 @@ impl ProcessControlBlock {
 
     /// 复刻当前进程，生成子进程
     pub fn fork(self: &Arc<ProcessControlBlock>) -> Result<Arc<ProcessControlBlock>> {
-        let mut inner = self.inner_exclusive_access();
+        let mut inner = self.inner_write();
 
         // 复制内存空间
         let memory_set = MemorySet::from_existed(&inner.memory_set)?;
@@ -212,33 +221,36 @@ impl ProcessControlBlock {
         let pcb = Arc::new(Self {
             pid,
             kernel_stack,
-            inner: unsafe {
-                SpinLock::new(ProcessControlBlockInner {
-                    trap_cx_ppn,
-                    base_size: inner.base_size,
-                    process_cx: ProcessContext::goto_trap_return(kernel_stack_top),
-                    process_status: ProcessStatus::Ready,
-                    memory_set,
-                    parent: Some(Arc::downgrade(self)), // 父进程
-                    children: Vec::new(),
-                    exit_code: 0,
-                })
-            },
+            inner: RwLock::new(ProcessControlBlockInner {
+                trap_cx_ppn,
+                base_size: inner.base_size,
+                process_cx: ProcessContext::goto_trap_return(kernel_stack_top),
+                process_status: ProcessStatus::Ready,
+                memory_set,
+                parent: Some(Arc::downgrade(self)), // 父进程
+                children: Vec::new(),
+                exit_code: 0,
+            }),
         });
 
         // 将子进程加入父进程的children列表
         inner.children.push(pcb.clone());
 
         // 修改中断上下文中的内核栈指针
-        let trap_cx = pcb.inner_exclusive_access().get_trap_cx();
+        let trap_cx = pcb.inner_read().get_trap_cx();
         trap_cx.kernel_sp = kernel_stack_top;
 
         Ok(pcb)
     }
 
-    /// 获取内部数据的共享引用
-    pub fn inner_exclusive_access(&self) -> SpinLockGuard<'_, ProcessControlBlockInner> {
-        self.inner.lock()
+    /// 获取内部数据的共享读引用
+    pub fn inner_read(&self) -> RwLockReadGuard<'_, ProcessControlBlockInner> {
+        self.inner.read()
+    }
+
+    /// 获取内部数据的独占写引用
+    pub fn inner_write(&self) -> RwLockWriteGuard<'_, ProcessControlBlockInner> {
+        self.inner.write()
     }
 
     /// 获取进程ID
