@@ -61,6 +61,12 @@ pub fn shutdown() -> ! {
     panic!("It should shutdown!")
 }
 
+/// send IPI to other harts
+pub fn send_ipi(hart_mask: usize) {
+    let hart_mask_addr = &hart_mask as *const _ as usize;
+    sbi_call(SBI_SEND_IPI, 0, hart_mask_addr, 0, 0);
+}
+
 /// set timer interrupt
 /// # args
 /// * `time` - time to set

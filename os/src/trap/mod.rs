@@ -22,15 +22,28 @@ use crate::{
     config::{self},
     syscall::syscall,
     task,
-    util::time::reset_next_timer,
+    util::time::set_next_timer,
 };
 
 /// 初始化中断处理
 pub fn init() {
+    set_kernel_trap_entry();
+    //unsafe {
+    //    // 写入中断的入口地址，即`trap.asm`中的`__alltraps`
+    //    // 在中断发生时，处理器会将执行流跳转到这个地址
+    //    stvec::write(__alltraps as usize, TrapMode::Direct);
+    //}
+}
+
+fn set_kernel_trap_entry() {
     unsafe {
-        // 写入中断的入口地址，即`trap.asm`中的`__alltraps`
-        // 在中断发生时，处理器会将执行流跳转到这个地址
-        stvec::write(__alltraps as usize, TrapMode::Direct);
+        stvec::write(trap_from_kernel as usize, TrapMode::Direct);
+    }
+}
+
+fn set_user_trap_entry() {
+    unsafe {
+        stvec::write(config::TRAMPOLINE as usize, TrapMode::Direct);
     }
 }
 
@@ -48,7 +61,7 @@ pub fn trap_handler() -> ! {
     match scause.cause() {
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             // 时钟中断
-            reset_next_timer();
+            set_next_timer();
             task::suspend_current_and_run_next();
         }
         Trap::Exception(Exception::UserEnvCall) => {
@@ -108,14 +121,9 @@ pub fn enable_timer_interrupt() {
     }
 }
 
-fn set_kernel_trap_entry() {
-    unsafe {
-        stvec::write(trap_from_kernel as usize, TrapMode::Direct);
-    }
-}
-
 #[no_mangle]
 pub fn trap_from_kernel() -> ! {
+    // TODO: 支持内核中断
     let scause = scause::read();
     let stval = stval::read();
     panic!(
@@ -123,12 +131,6 @@ pub fn trap_from_kernel() -> ! {
         scause.cause(),
         stval
     );
-}
-
-fn set_user_trap_entry() {
-    unsafe {
-        stvec::write(config::TRAMPOLINE as usize, TrapMode::Direct);
-    }
 }
 
 #[no_mangle]

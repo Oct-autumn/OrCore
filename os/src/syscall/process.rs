@@ -8,6 +8,7 @@ use crate::{
     error,
     loader::get_elf_data_by_name,
     mem::page_table::{translate_into_mut_i32, translated_str},
+    sync::RwLock,
     task,
 };
 
@@ -96,15 +97,18 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
     }
 
     // 查找是否有对应的僵尸子进程
-    let target_pcb = cpi
-        .children
-        .iter()
-        .find(|pcb| pcb.inner_read().is_zombie() && (pid == -1 || pid as usize == pcb.get_pid()));
+    let target_pair = cpi.children.iter().enumerate().find(|(_, pcb)| {
+        pcb.inner_read().is_zombie() && (pid == -1 || pid as usize == pcb.get_pid())
+    });
 
-    if let Some(target_cp) = target_pcb {
+    if let Some(target_pair) = target_pair {
+        let idx = target_pair.0;
+        let mut cpi = RwLock::upgrade(cpi);
+        let target_cp = cpi.children.remove(idx);
+
+        assert_eq!(Arc::strong_count(&target_cp), 1);
         // 找到对应的僵尸子进程
         let target_cpi = target_cp.inner_read();
-        assert_eq!(Arc::strong_count(target_cp), 1);
         let ec = target_cpi.exit_code;
         let ec_ret_res = translate_into_mut_i32(cpi.memory_set.token(), exit_code_ptr as usize);
         if ec_ret_res.is_err() {

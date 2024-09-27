@@ -8,6 +8,8 @@
 
 use core::fmt::{self, Write};
 
+use alloc::fmt::format;
+
 use super::{read, write};
 
 const STDIN: usize = 0;
@@ -24,7 +26,8 @@ impl Write for Stdout {
 }
 
 pub fn print(args: fmt::Arguments) {
-    Stdout.write_fmt(args).unwrap();
+    let str = format(args);
+    Stdout.write_str(str.as_str()).unwrap();
 }
 
 pub fn getchar() -> u8 {

@@ -2,6 +2,8 @@
 #![feature(linkage)] // 启用弱链接特性
 #![feature(alloc_error_handler)] // 启用alloc_error_handler特性
 
+pub extern crate alloc;
+
 use core::u8;
 
 use buddy_system_allocator::LockedHeap;
@@ -10,6 +12,7 @@ pub use syscall::*;
 #[macro_use]
 pub mod console;
 mod lang_items;
+pub mod sync;
 mod syscall;
 
 const USER_HEAP_SIZE: usize = 0x4000;

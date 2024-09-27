@@ -38,6 +38,6 @@ pub fn get_time_nsec() -> usize {
 ///
 /// 重设下次时钟中断，使得时钟中断在x周期后触发
 /// x = 时钟频率 / 每秒中断次数
-pub fn reset_next_timer() {
+pub fn set_next_timer() {
     set_timer(get_time_raw() + CLOCK_FREQ / TICKS_PER_SEC);
 }

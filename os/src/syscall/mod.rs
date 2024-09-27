@@ -16,8 +16,6 @@ const SYSCALL_EXEC: usize = 221;
 const SYSCALL_WAITPID: usize = 260;
 const SYSCALL_GETPID: usize = 172;
 
-/// 返回值：
-
 pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
     match syscall_id {
         SYSCALL_WRITE => file_sys::sys_write(args[0], args[1] as *const u8, args[2]),

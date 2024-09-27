@@ -1,3 +1,5 @@
+//! Test stack overflow.
+
 #![no_std]
 #![no_main]
 
@@ -14,6 +16,7 @@ fn f(depth: usize) {
 
 #[no_mangle]
 pub fn main() -> i32 {
+    println!("this program runs a function that will cause stack overflow.");
     println!("It should trigger segmentation fault!");
     f(0);
     0

@@ -1,5 +1,5 @@
 //! os/src/sync/rw_lock.rs
-//! 读写锁（支持读锁升级为写锁），内部使用自旋锁实现
+//! 读写锁，内部使用自旋锁实现
 
 use core::{
     cell::UnsafeCell,
