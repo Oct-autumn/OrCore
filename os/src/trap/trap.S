@@ -79,14 +79,14 @@ __restore:
     ld t1, 33*8(sp)
     csrw sstatus, t0
     csrw sepc, t1
+    # 恢复通用寄存器（跳过x0，sp(x2)，tp(x4)）
     ld x1, 1*8(sp)
     ld x3, 3*8(sp)
-    # 恢复通用寄存器（跳过x0，sp(x2)，tp(x4)）
     .set n, 5
     .rept 27
         LOAD_GP %n
         .set n, n+1
     .endr
-    # 恢复用户栈地址
+    # 恢复用户栈地址sp(x2)
     ld sp, 2*8(sp)
     sret

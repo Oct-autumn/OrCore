@@ -7,7 +7,7 @@ pub const CLOCK_FREQ: usize = 403000000 / 62;
 #[cfg(all(feature = "board_qemu", not(feature = "board_k210")))]
 pub const CLOCK_FREQ: usize = 12500000;
 
-pub const TICKS_PER_SEC: usize = 100; // 每秒时钟中断次数（注意，如果内核日志输出等级过高，会导致用户程序因无法分得足够的时间片而不能正常运行）
+pub const TICKS_PER_SEC: usize = 10; // 每秒时钟中断次数（注意，如果内核日志输出等级过高，会导致用户程序因无法分得足够的时间片而不能正常运行）
 
 pub const MEMORY_END: usize = 0x80800000; // 内存结束地址
 
@@ -21,3 +21,28 @@ pub const TRAP_CONTEXT: usize = TRAMPOLINE - PAGE_SIZE; // 存放TrapContext的�
 
 // 为避免分配相邻PID导致误认为是同一进程的问题，维持PID回收队列中最少的PID数量
 pub const MIN_PID_RECYCLE: usize = 10;
+
+pub const CPU_NUM: usize = 2; // CPU数量
+
+#[cfg(all(feature = "board_qemu", not(feature = "board_k210")))]
+pub const MMIO: &[(usize, usize)] = &[(0x10000000, 0x10000)];
+
+#[cfg(feature = "board_k210")]
+pub const MMIO: &[(usize, usize)] = &[
+    // we don't need clint in S priv when running
+    // we only need claim/complete for target0 after initializing
+    (0x0C00_0000, 0x3000), /* PLIC      */
+    (0x0C20_0000, 0x1000), /* PLIC      */
+    (0x3800_0000, 0x1000), /* UARTHS    */
+    (0x3800_1000, 0x1000), /* GPIOHS    */
+    (0x5020_0000, 0x1000), /* GPIO      */
+    (0x5024_0000, 0x1000), /* SPI_SLAVE */
+    (0x502B_0000, 0x1000), /* FPIOA     */
+    (0x502D_0000, 0x1000), /* TIMER0    */
+    (0x502E_0000, 0x1000), /* TIMER1    */
+    (0x502F_0000, 0x1000), /* TIMER2    */
+    (0x5044_0000, 0x1000), /* SYSCTL    */
+    (0x5200_0000, 0x1000), /* SPI0      */
+    (0x5300_0000, 0x1000), /* SPI1      */
+    (0x5400_0000, 0x1000), /* SPI2      */
+];

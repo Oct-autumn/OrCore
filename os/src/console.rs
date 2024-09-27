@@ -8,9 +8,15 @@
 
 use core::fmt::{self, Write};
 
-use crate::sbi_call::console_putchar;
+use lazy_static::lazy_static;
+
+use crate::{sbi_call::console_putchar, sync::SpinLock};
 
 struct Stdout; // Unit-like structs
+
+lazy_static! {
+    static ref STDOUT_LOCK: SpinLock<()> = SpinLock::new(());
+}
 
 impl Write for Stdout {
     // impl of Write::write_str for Stdout
@@ -23,6 +29,7 @@ impl Write for Stdout {
 }
 
 pub fn print(args: fmt::Arguments) {
+    let _guard = STDOUT_LOCK.lock();
     Stdout.write_fmt(args).unwrap();
 }
 
