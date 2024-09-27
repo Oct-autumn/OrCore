@@ -80,7 +80,7 @@ k210有两个核心，如果只用一个核心的话太浪费了。所以，本�
 
     ```rust
     //! os/src/sync/rw_lock.rs
-    //! 读写锁，内部使用自旋锁实现
+    //! 读写锁（支持读锁升级为写锁），内部使用自旋锁实现
 
     use core::{
         cell::UnsafeCell,
@@ -145,6 +145,25 @@ k210有两个核心，如果只用一个核心的话太浪费了。所以，本�
 
             RwLockWriteGuard { lock: self }
         }
+
+        /// 从读锁升级为写锁
+        pub fn upgrade<'a>(read_guard: RwLockReadGuard<'a, T>) -> RwLockWriteGuard<'a, T> {
+            // 等待其他写者释放锁
+            while read_guard
+                .lock
+                .writer
+                .compare_exchange(0, 1, Ordering::Acquire, Ordering::Relaxed)
+                .is_err()
+            {}
+
+            // 等待所有其它读者释放锁
+            // 最终只剩下read_guard一个读者，而在函数返回后，read_guard会被销毁，不再存在读者
+            while read_guard.lock.readers.load(Ordering::Acquire) != 1 {}
+
+            RwLockWriteGuard {
+                lock: &read_guard.lock,
+            }
+        }
     }
 
     pub struct RwLockReadGuard<'a, T> {
@@ -188,6 +207,7 @@ k210有两个核心，如果只用一个核心的话太浪费了。所以，本�
             unsafe { &mut *self.lock.value.get() }
         }
     }
+
     ```
 
 2. 将UPSafeCell升级为线程安全的锁
@@ -353,8 +373,29 @@ pub fn send_ipi(hart_mask: usize) {
 ```rust
 //! os/src/util/cpu.rs
 
-/// 设置当前核心的ID
-/// 
+/// 将核心ID保存到tp寄存器
+pub fn set_cpu_id(hart_id: usize) {
+    // 将处理器ID放入 tp(x4) 寄存器
+    // tp 寄存器是一个专用寄存器，它不会被应用程序使用，且在之后的trap处理中也不会被修改
+    unsafe {
+        asm!("mv tp, {}", in(reg) hart_id);
+    }
+}
+```
+
+在之后的程序中，我们就可以通过`mv reg, tp`来获取当前核心的ID。
+```rust
+//! os/src/util/cpu.rs
+
+/// 获取当前处理器核心的ID
+pub fn hart_id() -> usize {
+    let mut ret;
+    // 从 tp(x4) 中取出当前处理器的ID
+    unsafe {
+        asm!("mv {}, tp", out(reg) ret);
+    }
+    ret
+}
 ```
 
 ### 2. 多核同步
@@ -378,3 +419,28 @@ pub fn print(args: fmt::Arguments) {
 
 ### 3. 进程调度
 
+截至目前，我们已经可以在k210上启动两个核心，并且可以在串口输出时保证原子性，但整个系统仍然不能正常运行。因为在之前章节的实现中，`PROCESSOR`是按照单处理器设计的。接下来，我们需要改进它的设计，以实现多处理器的进程调度。
+
+首先，一个Processor示例应当对应一个逻辑处理器。因此我们将`PROCESSOR`更名为`PROCESSORS`，将其变更为一个`Vec<RwLock<Processor>>`，以实现对多处理器的映射。
+
+```rust
+//! os/src/task/processor.rs
+
+lazy_static! {
+    /// 处理器实例
+    pub static ref PROCESSORS: Vec<RwLock<Processor>> = {
+        let mut processors = Vec::new();
+
+        // 创建处理器实例
+        for _ in 0..config::CPU_NUM {
+            processors.push(RwLock::new(Processor::new()));
+        }
+
+        processors
+    };
+}
+```
+
+相应的，我们需要修改`Processor`的实现，使其支持多核心的调度。听起来很复杂，实际上就是将所有`PROCESSOR`实例改成`PROCESSORS[cpu::get_id()]`即可
+
+至此，我们就基本完成了`rCore(ch5版本)`适配到k210多核处理器上的工作。

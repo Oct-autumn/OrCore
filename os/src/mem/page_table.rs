@@ -301,7 +301,7 @@ pub fn translated_str(token: usize, ptr: *const u8) -> Result<String> {
 pub fn translate_into<T>(token: usize, ptr: usize) -> Result<&'static mut T> {
     let page_table = PageTable::from_token(token);
     let vpn = VirtAddr::from(ptr as usize).floor();
-    let ppn = page_table.translate(vpn).unwrap().ppn();
+    let ppn = page_table.translate(vpn)?.ppn();
     let offset = VirtAddr::from(ptr as usize).page_offset();
     let pa = PhysAddr::from((ppn.0 << 12) | offset);
     unsafe { Ok((pa.0 as *mut T).as_mut().unwrap()) }

@@ -20,7 +20,7 @@ pub const TRAMPOLINE: usize = usize::MAX - PAGE_SIZE + 1; // 用于存放中断�
 pub const TRAP_CONTEXT: usize = TRAMPOLINE - PAGE_SIZE; // 存放TrapContext的地址
 
 // 为避免分配相邻PID导致误认为是同一进程的问题，维持PID回收队列中最少的PID数量
-pub const MIN_PID_RECYCLE: usize = 10;
+pub const MIN_PID_RECYCLE: usize = 100;
 
 pub const CPU_NUM: usize = 2; // CPU数量
 

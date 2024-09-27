@@ -26,10 +26,6 @@ const FD_STDIN: usize = 0;
 ///
 /// **返回值：**<br>
 ///         - 成功：返回写入的长度；<br>
-///         - 失败：<br>
-///                 -1（不支持的文件描述符）<br>
-///                 -2（非法缓冲区）<br>
-///
 /// **syscall ID：** 64
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     match fd {

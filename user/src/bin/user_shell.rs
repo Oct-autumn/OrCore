@@ -86,7 +86,7 @@ fn exec_cmd(mut cmd: String) -> isize {
         let mut exit_code: i32 = 0;
         let exit_pid = waitpid(pid as usize, &mut exit_code);
         assert_eq!(exit_pid, pid);
-        println!("Program pid:{} exited with code {}", pid, exit_code);
+        println!("[Shell] pid:{} exited with code {}", pid, exit_code);
     }
     0
 }

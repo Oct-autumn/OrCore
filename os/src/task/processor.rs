@@ -1,7 +1,7 @@
-use alloc::sync::Arc;
+use alloc::{sync::Arc, vec::Vec};
 use lazy_static::lazy_static;
 
-use crate::sync::RwLock;
+use crate::{config, sync::RwLock, util::cpu};
 
 use super::{
     context::ProcessContext,
@@ -12,14 +12,23 @@ use super::{
 
 lazy_static! {
     /// 处理器实例
-    pub static ref PROCESSOR: RwLock<Processor> = RwLock::new(Processor::new());
+    pub static ref PROCESSORS: Vec<RwLock<Processor>> = {
+        let mut processors = Vec::new();
+
+        // 创建处理器实例
+        for _ in 0..config::CPU_NUM {
+            processors.push(RwLock::new(Processor::new()));
+        }
+
+        processors
+    };
 }
 
 /// idle任务：当没有任务可以运行时，运行idle任务<br>
 /// 该任务将尝试从进程管理器中获取一个ready的进程并运行它。
 pub fn run_tasks() {
     loop {
-        let mut processor = PROCESSOR.write();
+        let mut processor = PROCESSORS[cpu::hart_id()].write();
 
         // 尝试从进程管理器中获取一个进程
         if let Some(process) = fetch_process() {
@@ -42,7 +51,7 @@ pub fn run_tasks() {
 /// 调度函数：当发生进程调度时，运行调度函数<br>
 /// 将当前任务切换到idle任务
 pub fn schedule(switched_task_cx_ptr: *mut ProcessContext) {
-    let mut processor = PROCESSOR.write();
+    let mut processor = PROCESSORS[cpu::hart_id()].write();
     let idle_task_cx_ptr = processor.get_idle_task_cx_ptr();
     drop(processor);
     unsafe {
@@ -83,12 +92,12 @@ impl Processor {
 
 /// 取出cpu当前的进程
 pub fn take_current_process() -> Option<Arc<ProcessControlBlock>> {
-    PROCESSOR.write().take_current()
+    PROCESSORS[cpu::hart_id()].write().take_current()
 }
 
 /// 获取当前进程PCB指针的一份拷贝
 pub fn current_process() -> Option<Arc<ProcessControlBlock>> {
-    PROCESSOR.read().current()
+    PROCESSORS[cpu::hart_id()].read().current()
 }
 
 /// 获取当前进程的页表token

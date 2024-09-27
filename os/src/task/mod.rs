@@ -58,7 +58,7 @@ pub fn exit_current_and_run_next(exit_code: i32) {
     cpi.exit_code = exit_code; // 设置返回值
 
     {
-        // 为了使当前进程的子进程在父进程结束后仍然运行，将INITPROC设置为其父进程
+        // 为了使当前进程的子进程在父进程结束后仍然运行，将Initproc设置为其父进程
         let mut initproc_inner = INITPROC.inner_write();
         for child in cpi.children.iter() {
             child.inner_write().parent = Some(Arc::downgrade(&INITPROC));
