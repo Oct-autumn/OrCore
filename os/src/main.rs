@@ -28,6 +28,7 @@ mod syscall;
 mod task;
 mod trap;
 mod util;
+mod fs;
 
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("link_app.S")); //将App链入内核

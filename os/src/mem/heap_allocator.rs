@@ -20,7 +20,6 @@ pub fn init_heap() {
     }
 }
 
-#[alloc_error_handler]
 pub fn handle_alloc_error(layout: core::alloc::Layout) -> ! {
     println!("Heap allocation error, layout = {:?}", layout);
     shutdown()

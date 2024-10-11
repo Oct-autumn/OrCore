@@ -9,6 +9,7 @@ edition = "2021"
 riscv = "0.11.1"
 lazy_static = { version = "1.5.0", features = ["spin_no_std"] }
 buddy_system_allocator = "0.11.0"
+bitflags = "2.6.0"
 
 [profile.release]
 debug = true

@@ -19,6 +19,7 @@ use super::{
 };
 
 bitflags! {
+    #[derive(Debug)]
     pub struct PTEFlags: u8 {
         /// Valid 代表PTE是否有效
         const V = 1 << 0;

@@ -15,6 +15,8 @@ const SYSCALL_FORK: usize = 220;
 const SYSCALL_EXEC: usize = 221;
 const SYSCALL_WAITPID: usize = 260;
 const SYSCALL_GETPID: usize = 172;
+const SYSCALL_OPEN: usize = 56;
+const SYSCALL_CLOSE: usize = 57;
 
 pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
     match syscall_id {

@@ -17,15 +17,20 @@ use crate::{
 const FD_STDOUT: usize = 1;
 const FD_STDIN: usize = 0;
 
-/// **功能：** 将内存中缓冲区中的数据写入文件。 <br>
+
+/// **功能：** 将内存中缓冲区中的数据写入文件
 ///
-/// **参数：**  <br>
-///         - `fd` 表示待写入文件的文件描述符；<br>
-///         - `buf` 表示内存中缓冲区的起始地址；<br>
-///         - `len` 表示内存中缓冲区的长度。<br>
+/// **参数：**
+///   - `fd` 表示待写入文件的文件描述符
+///   - `buf` 表示内存中缓冲区的起始地址
+///   - `len` 表示内存中缓冲区的长度
 ///
-/// **返回值：**<br>
-///         - 成功：返回写入的长度；<br>
+/// **返回值：**
+///   - 成功：返回写入的长度；
+///   - 失败：
+///     - -1（不支持的文件描述符）
+///     - -2（无效的缓冲区）
+///
 /// **syscall ID：** 64
 pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     match fd {
@@ -49,16 +54,24 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
     }
 }
 
-/// **功能：** 从文件中读取数据到内存缓冲区。 <br>
-/// **参数：**  <br>
-///         - `fd` 表示待读取文件的文件描述符；<br>
-///         - `buf` 表示内存中缓冲区的起始地址；<br>
-/// **返回值：** 返回成功读取的长度。<br>
+/// **功能：** 从文件中读取数据到内存缓冲区
+///
+/// **参数：**
+///   - `fd` 表示待读取文件的文件描述符
+///   - `buf` 表示内存中缓冲区的起始地址
+///
+/// **返回值：** 返回成功读取的长度
+///
 /// **syscall ID：** 63
 pub fn sys_read(fd: usize, buf: *mut u8, len: usize) -> isize {
     match fd {
         FD_STDIN => {
-            assert_eq!(len, 1, "Only support len = 1 in sys_read!");
+            assert_eq!(len, 1, "Only support len = 1 in sys_read!");    // TODO: 支持更多长度
+            let res = page_table::translated_byte_buffer(task::current_process_token(), buf, len);
+            if res.is_err() {
+                error!("Failed to translate buffer: {:?}", res.err());
+                return -2;
+            }
             let mut c: usize;
             loop {
                 c = console_getchar();
@@ -70,11 +83,6 @@ pub fn sys_read(fd: usize, buf: *mut u8, len: usize) -> isize {
                 }
             }
             let ch = c as u8;
-            let res = page_table::translated_byte_buffer(task::current_process_token(), buf, len);
-            if res.is_err() {
-                error!("Failed to translate buffer: {:?}", res.err());
-                return -2;
-            }
             let mut buffers = res.unwrap();
             unsafe {
                 buffers[0].as_mut_ptr().write_volatile(ch);
@@ -87,6 +95,20 @@ pub fn sys_read(fd: usize, buf: *mut u8, len: usize) -> isize {
     }
 }
 
+/// **功能：** 打开文件
+///
+/// **参数：**
+///         - `path` 表示文件路径
+///         - `flags` 表示打开文件的标志
+///
+/// **返回值：**
+///   - 成功：返回文件描述符
+/// **syscall ID：** 56
+pub fn sys_open(path: &str, flags: u32) -> isize {
+    // TODO: 实现打开文件
+    0
+}
+
 /// **功能：** 为当前应用程序申请内存空间。 <br>
 /// **参数：**  <br>
 ///         - `s_va` 表示申请内存的起始地址；<br>
@@ -95,7 +117,7 @@ pub fn sys_read(fd: usize, buf: *mut u8, len: usize) -> isize {
 /// **返回值：** 0表示成功，-1表示失败。<br>
 /// **syscall ID：** 222
 pub fn sys_mmap(s_va: usize, len: usize, prot: usize) -> isize {
-    assert!(s_va & config::PAGE_OFFSET_MASK == 0); // 起始地址应当是页对齐的
+    assert_eq!(s_va & config::PAGE_OFFSET_MASK, 0); // 起始地址应当是页对齐的
     assert_eq!(prot & !0b111, 0); // 除最低三位，prot其它位必须为0
     assert_ne!(prot & 0b111, 0); // prot最低三位不能全为0
 
@@ -127,7 +149,7 @@ pub fn sys_mmap(s_va: usize, len: usize, prot: usize) -> isize {
 /// **返回值：** 0表示成功，-1表示失败。<br>
 /// **syscall ID：** 215
 pub fn sys_munmap(s_va: usize, len: usize) -> isize {
-    assert!(s_va & config::PAGE_OFFSET_MASK == 0); // 起始地址应当是页对齐的
+    assert_eq!(s_va & config::PAGE_OFFSET_MASK, 0); // 起始地址应当是页对齐的
 
     // len向上取整
     let len = (len + config::PAGE_SIZE - 1) & !config::PAGE_OFFSET_MASK;

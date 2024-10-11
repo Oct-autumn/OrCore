@@ -9,6 +9,14 @@
 /user/build/
 /user/Cargo.lock
 
+/fs/target/
+/fs/Cargo.lock
+
+/fs-fuse/target/
+/fs-fuse/Cargo.lock
+
 /.VSCodeCounter/
+/.idea/
+/.vscode/
 
 /tools/

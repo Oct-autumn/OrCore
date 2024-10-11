@@ -11,6 +11,10 @@ use crate::{
     new_error, println,
 };
 
+extern "C" {
+    fn _num_app();
+}
+
 lazy_static! {
     static ref APP_NAMES: Vec<&'static str> = {
         let mut v = Vec::new();
@@ -49,9 +53,6 @@ pub fn list_apps() {
 
 /// 获取App数量
 pub fn get_num_app() -> usize {
-    extern "C" {
-        fn _num_app();
-    }
     unsafe { (_num_app as usize as *const usize).read_volatile() }
 }
 

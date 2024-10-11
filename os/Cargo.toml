@@ -13,6 +13,7 @@ riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 buddy_system_allocator = "0.11.0"
 bitflags = "2.6.0"
 xmas-elf = "0.9.1"
+fs = { path = "../fs" }
 
 [profile.release]
 debug = true
