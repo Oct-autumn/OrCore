@@ -10,9 +10,8 @@ use crate::ex_fat::persistent_layer::ClusterManager;
 use crate::BlockDevice;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use core::cmp::min;
 use spin::{RwLock, RwLockReadGuard};
-use std::cmp::min;
-use crate::block_cache::print_all_cache;
 
 /// 文件目录
 #[derive(Debug)]

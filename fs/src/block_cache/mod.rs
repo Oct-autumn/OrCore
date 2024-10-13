@@ -94,23 +94,6 @@ impl BlockCacheManager {
             cache.sync();
         });
     }
-
-    // TODO: debug
-    pub fn print_cache_block(&self, block_id: usize) {
-        if let Some(cache) = self.caches.get(&block_id) {
-            let cache = cache.read();
-            cache.read(0, |data: &[u8; 512]| {
-                for i in 0..512 {
-                    print!("{:02x} ", data[i]);
-                    if i % 32 == 31 {
-                        println!();
-                    }
-                }
-            });
-        } else {
-            println!("block_id: {} not found", block_id);
-        }
-    }
 }
 
 /// 获取缓存块
@@ -126,20 +109,4 @@ pub fn get_block_cache(
 /// 将所有缓存块写回块设备
 pub fn sync_all() {
     BLOCK_CACHE_MANAGER.lock().sync_all();
-}
-
-pub fn print_all_cache() {
-    let manager = BLOCK_CACHE_MANAGER.lock();
-    for (block_id, cache) in manager.caches.iter() {
-        println!("block_id: {}", block_id);
-        let cache = cache.read();
-        cache.read(0, |data: &[u8; 512]| {
-            for i in 0..512 {
-                print!("{:02x} ", data[i]);
-                if i % 32 == 31 {
-                    println!();
-                }
-            }
-        });
-    }
 }

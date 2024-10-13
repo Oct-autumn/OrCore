@@ -29,6 +29,7 @@ mod task;
 mod trap;
 mod util;
 mod fs;
+mod drivers;
 
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("link_app.S")); //将App链入内核
@@ -65,10 +66,17 @@ fn global_init(_device_tree_paddr: usize) {
     println!("Initializing log module...");
     kernel_log::init();
 
+    // 初始化文件系统
+    info!("Initializing file system...");
+    info!("Initializing block device...");
+    info!("Block device size: {} bytes", drivers::BLOCK_DEVICE.num_blocks() * 512);
+    drivers::test_block_device();
+    
     // 初始化进程管理子模块
     task::add_initproc(); // 添加initproc任务
 
-    loader::list_apps(); // 列出所有App
+    // 列出所有内嵌App
+    loader::list_apps();
 
     info!("System init finished");
 }

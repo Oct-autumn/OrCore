@@ -8,6 +8,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use bitflags::*;
+use core::cmp::min;
 
 use crate::error::{self, Error, ErrorKind, MsgType, Result};
 use crate::new_error;
@@ -261,22 +262,28 @@ pub fn translated_byte_buffer(
     len: usize,
 ) -> Result<Vec<&'static mut [u8]>> {
     let page_table = PageTable::from_token(token);
-    let mut start = ptr as usize;
-    let end = start + len;
+    let mut start = ptr as usize;   // 起始地址
+    let end = start + len;        // 结束地址
+
+    // 逐页翻译
     let mut v = Vec::new();
     while start < end {
+        // 将起始虚拟地址翻译为物理地址
         let start_va = VirtAddr::from(start);
         let mut vpn = start_va.floor();
         let ppn = page_table.translate(vpn)?.ppn();
+        // 计算结束地址，其来自下一个虚拟页的首地址与缓冲区结束地址的较小值
         vpn.step();
-        let mut end_va: VirtAddr = vpn.into();
-        end_va = end_va.min(VirtAddr::from(end));
+        let mut end_va = min(vpn.into(), VirtAddr::from(end));
+
         if end_va.page_offset() == 0 {
+            // 如果结束地址是页的首地址，直接将整个页加入缓冲区
             v.push(&mut ppn.get_as_bytes_array()[start_va.page_offset()..]);
         } else {
+            // 否则只加入从起始地址到结束地址的部分
             v.push(&mut ppn.get_as_bytes_array()[start_va.page_offset()..end_va.page_offset()]);
         }
-        start = end_va.into();
+        start = end_va.into();  // 更新起始地址
     }
     Ok(v)
 }

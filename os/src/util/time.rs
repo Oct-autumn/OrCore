@@ -41,3 +41,8 @@ pub fn get_time_nsec() -> usize {
 pub fn set_next_timer() {
     set_timer(get_time_raw() + CLOCK_FREQ / TICKS_PER_SEC);
 }
+
+pub fn sleep(ms: usize) {
+    let start = get_time_msec();
+    while get_time_msec() - start < ms {}
+}

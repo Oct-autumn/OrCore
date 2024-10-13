@@ -3,6 +3,7 @@ mod frame_allocator;
 mod heap_allocator;
 pub mod memory_set;
 pub mod page_table;
+pub mod user_buffer;
 
 use alloc::sync::Arc;
 use lazy_static::lazy_static;

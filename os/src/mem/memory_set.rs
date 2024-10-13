@@ -391,20 +391,20 @@ impl MemorySet {
         }
 
         // MMIO直接映射
-        //for (start, len) in config::MMIO {
-        //    println!("MMIO [{:#x}, {:#x}) RW--", start, start + len);
-        //    if let Err(e) = mem_set.push(
-        //        LogicalSegment::new(
-        //            (*start).into(),
-        //            (start + len).into(),
-        //            SegType::Identical,
-        //            SegPermission::R | SegPermission::W,
-        //        ),
-        //        None,
-        //    ) {
-        //        panic!("map MMIO failed: {:?}", e);
-        //    }
-        //}
+        for (start, len) in config::MMIO {
+            println!("MMIO [{:#x}, {:#x}) RW--", start, start + len);
+            if let Err(e) = mem_set.push(
+                LogicalSegment::new(
+                    (*start).into(),
+                    (start + len).into(),
+                    SegType::Identical,
+                    SegPermission::R | SegPermission::W,
+                ),
+                None,
+            ) {
+                panic!("map MMIO failed: {:?}", e);
+            }
+        }
 
         println!("kernel memory set initialized");
 

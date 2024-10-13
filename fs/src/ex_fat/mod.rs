@@ -1,4 +1,4 @@
-use crate::block_cache::{get_block_cache, print_all_cache, sync_all};
+use crate::block_cache::{get_block_cache, sync_all};
 use crate::ex_fat::file_manage::FileManager;
 use crate::ex_fat::index_entry_manage::IndexEntryManager;
 use crate::ex_fat::persistent_layer::model::index_entry::EntryCostume;
@@ -523,11 +523,6 @@ impl ExFAT {
             // 在某次查找中丢失目标，查找失败
             return None;
         }
-    }
-
-    pub fn print_all_cache(&self) {
-        println!("Printing all block cache:");
-        print_all_cache();
     }
 }
 

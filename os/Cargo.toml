@@ -14,6 +14,10 @@ buddy_system_allocator = "0.11.0"
 bitflags = "2.6.0"
 xmas-elf = "0.9.1"
 fs = { path = "../fs" }
+# For k210 devices
+k210-pac = { git = "https://github.com/wyfcyx/k210-pac" }
+k210-hal = { git = "https://github.com/wyfcyx/k210-hal" }
+k210-soc = { git = "https://github.com/wyfcyx/k210-soc" }
 
 [profile.release]
 debug = true

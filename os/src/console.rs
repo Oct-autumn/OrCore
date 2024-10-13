@@ -46,5 +46,6 @@ macro_rules! print {
 macro_rules! println {
     ($fmt:literal $(, $($arg:tt)+)?) => {
         $crate::console::print(format_args!(concat!($fmt, "\n") $(, $($arg)+)?));
-    }
+    };
+    () => { $crate::console::print(format_args!("\n")); };
 }

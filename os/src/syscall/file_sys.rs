@@ -2,6 +2,7 @@
 //! file and file-system related syscall
 
 use log::*;
+use alloc::string::String;
 
 use crate::{
     config,
@@ -13,6 +14,7 @@ use crate::{
     sbi_call::console_getchar,
     task,
 };
+use crate::mem::user_buffer::UserBuffer;
 
 const FD_STDOUT: usize = 1;
 const FD_STDIN: usize = 0;
@@ -41,10 +43,12 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
                 return -2;
             }
 
-            let buffer = res.unwrap();
-            for b in buffer {
-                print!("{}", core::str::from_utf8(b).unwrap());
+            let buffer = UserBuffer::new(res.unwrap());
+            let mut str = String::new();
+            for ptr in buffer.into_iter() {
+                unsafe { str.push(*ptr as char); }
             }
+            print!("{}", str);
             len as isize
         }
         _ => {
@@ -66,12 +70,13 @@ pub fn sys_write(fd: usize, buf: *const u8, len: usize) -> isize {
 pub fn sys_read(fd: usize, buf: *mut u8, len: usize) -> isize {
     match fd {
         FD_STDIN => {
-            assert_eq!(len, 1, "Only support len = 1 in sys_read!");    // TODO: 支持更多长度
+            assert_eq!(len, 1, "Only support len = 1 in sys_read!");
             let res = page_table::translated_byte_buffer(task::current_process_token(), buf, len);
             if res.is_err() {
                 error!("Failed to translate buffer: {:?}", res.err());
                 return -2;
             }
+            
             let mut c: usize;
             loop {
                 c = console_getchar();
@@ -83,10 +88,9 @@ pub fn sys_read(fd: usize, buf: *mut u8, len: usize) -> isize {
                 }
             }
             let ch = c as u8;
-            let mut buffers = res.unwrap();
-            unsafe {
-                buffers[0].as_mut_ptr().write_volatile(ch);
-            }
+            let mut buffers = UserBuffer::new(res.unwrap());
+            let ptr = buffers.get_mut_at(0).unwrap();
+            *ptr = ch;
             1
         }
         _ => {
@@ -106,6 +110,19 @@ pub fn sys_read(fd: usize, buf: *mut u8, len: usize) -> isize {
 /// **syscall ID：** 56
 pub fn sys_open(path: &str, flags: u32) -> isize {
     // TODO: 实现打开文件
+    0
+}
+
+/// **功能：** 关闭文件
+/// 
+/// **参数：**
+///         - `fd` 表示文件描述符
+/// 
+/// **返回值：**
+///         - 成功：返回0
+/// **syscall ID：** 57
+pub fn sys_close(fd: usize) -> isize {
+    // TODO: 实现关闭文件
     0
 }
 
