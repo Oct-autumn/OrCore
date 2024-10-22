@@ -6,7 +6,7 @@
 #![allow(non_camel_case_types)]
 #![allow(unused)]
 
-use super::BlockDevice;
+use fs::block_device::BlockDevice;
 use crate::println;
 use crate::sync::RwLock;
 use core::convert::TryInto;

@@ -1,4 +1,4 @@
-//! fs/ex_fat/persistent_layer/boot.rs
+//! fs/ex_fat/cluster_chain/boot_sector
 //!
 //! DBR相关结构体定义：MBR/BBR/BR校验和
 
@@ -12,13 +12,9 @@ bitflags! {
         /// **启用的FAT表**
         const ActiveFat = 1 << 0;
         /// **是否为脏卷**
-        ///
-        /// 脏卷意为卷可能存在文件系统元数据不一致
         const VolumeDirty = 1 << 1;
         /// **存储介质故障**
         const MediaFailure = 1 << 2;
-        /// 本规范中没有重大意义
-        const ClearToZero = 1 << 3;
     }
 }
 
@@ -38,7 +34,7 @@ pub struct BootSector {
     /// **文件系统名** 0x003 8B
     pub file_system_name: [u8; 8],
     /// **对齐** 0x00B 53B
-    _must_be_zero: [u8; 53],
+    must_be_zero: [u8; 53],
     /// **卷偏移量**（单位：扇区，为0时应忽略） 0x040 8B
     pub partition_offset: u64,
     /// **卷大小**（单位：扇区） 0x048 8B
@@ -56,7 +52,7 @@ pub struct BootSector {
     /// **卷序列号（用于区分不同卷）** 0x064 4B
     pub volume_serial_number: u32,
     /// **文件系统版本号** 0x068 2B
-    pub filesystem_revision: u16,
+    pub filesystem_revision: [u8; 2],
     /// **卷状态** 0x06A 2B
     pub volume_flags: VolumeFlags,
     /// **每扇区字节数描述**（`2^N`字节） 0x06C 1B
@@ -90,9 +86,9 @@ impl BootSector {
         sector_per_cluster: u32,
     ) -> Self {
         Self {
-            jump_boot: config::EXFAT_BOOT_JUMP,
-            file_system_name: config::EXFAT_SIGNATURE,
-            _must_be_zero: [0; 53],
+            jump_boot: crate::ex_fat::r#const::EXFAT_BOOT_JUMP,
+            file_system_name: crate::ex_fat::r#const::EXFAT_SIGNATURE,
+            must_be_zero: [0; 53],
             partition_offset: 0,
             volume_length,
             fat_offset,
@@ -101,7 +97,7 @@ impl BootSector {
             cluster_count,
             first_cluster_of_root_directory,
             volume_serial_number,
-            filesystem_revision: config::EXFAT_VERSION,
+            filesystem_revision: crate::ex_fat::r#const::EXFAT_VERSION,
             volume_flags: VolumeFlags::empty(),
             bytes_per_sector_shift: bytes_per_sector.trailing_zeros() as u8,
             sectors_per_cluster_shift: sector_per_cluster.trailing_zeros() as u8,
@@ -110,18 +106,45 @@ impl BootSector {
             percent_in_use: 0,
             _reserved: [0; 7],
             boot_code: [0; 390],
-            boot_signature: config::EXFAT_BOOT_END,
+            boot_signature: crate::ex_fat::r#const::EXFAT_BOOT_SIGNATURE,
         }
     }
 
     /// 检查是否为exFAT文件系统
     pub fn is_exfat(&self) -> bool {
-        self.jump_boot == config::EXFAT_BOOT_JUMP && self.file_system_name == config::EXFAT_SIGNATURE
+        self.jump_boot == crate::ex_fat::r#const::EXFAT_BOOT_JUMP && self.file_system_name == crate::ex_fat::r#const::EXFAT_SIGNATURE
     }
 
     /// 卷状态
     pub fn volume_flags(&self) -> VolumeFlags {
         self.volume_flags
+    }
+
+    /// 有效性检查
+    pub fn check_valid(&self) -> Result<(), String> {
+        if self.boot_signature != crate::ex_fat::r#const::EXFAT_BOOT_SIGNATURE {
+            Err(format!("Invalid boot record signature: {:?}", self.boot_signature))
+        } else if self.file_system_name != crate::ex_fat::r#const::EXFAT_SIGNATURE {
+            Err(format!("Invalid fs_name: {:?}", self.file_system_name))
+        } else if self.must_be_zero.iter().find(|byte| **byte != 0).is_some() {
+            Err(format!("Invalid must_be_zero: {:?}", self.must_be_zero))
+        } else if self.number_of_fats != 1 {
+            Err(format!("Unsupported number of fats: {:?}", self.number_of_fats))
+        } else if self.bytes_per_sector_shift != 9 {
+            Err(format!("Unsupported sector size: {:?}", self.bytes_per_sector_shift))
+        } else if self.sectors_per_cluster_shift > 16 {
+            Err(format!("Sectors per cluster shift too large: {:?}", self.sectors_per_cluster_shift))
+        } else if (self.fat_length << self.bytes_per_sector_shift) < ((self.cluster_count + 2) << 2) {
+            Err(format!("Invalid fat length: {:?}", self.fat_length))
+        } else if self.cluster_heap_offset < (self.fat_offset + self.fat_length) {
+            Err(format!("Invalid cluster heap offset: {:?}", self.cluster_heap_offset))
+        } else if self.volume_flags.contains(VolumeFlags::VolumeDirty) {
+            Err("Volume was not properly unmounted. Some data may be corrupt. Please run fsck.".to_string())
+        } else if self.volume_flags.contains(VolumeFlags::MediaFailure) {
+            Err("Medium has reported failures. Some data may be lost.".to_string())
+        } else {
+            Ok(())
+        }
     }
 
     pub fn to_bytes(&self) -> [u8; 512] {
@@ -134,13 +157,13 @@ impl BootSector {
 }
 
 /// **引导区校验和**
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Eq, PartialEq)]
 pub struct BootChecksum(pub u32);
 
 impl BootChecksum {
     /// 读取扇区，计算校验和
     pub fn add_sector(&mut self, sector: &[u8], is_boot_sector: bool) {
-        assert_eq!(sector.len(), config::SECTOR_BYTES); // 输入的sector大小必须为一个扇区
+        assert_eq!(sector.len(), config::SECTOR_BYTES); // 输入的slice大小必须为一个扇区
         let number_of_bytes: u32 = config::SECTOR_BYTES as u32;
         let mut checksum: u32 = self.0;
 
@@ -148,15 +171,9 @@ impl BootChecksum {
             if is_boot_sector && (index == 106 || index == 107 || index == 112) {
                 continue;
             } else {
-                checksum >>= 1;
-                checksum += 0x80000000 * (checksum & 1) + sector[index as usize] as u32;
+                checksum = ((checksum << 31) | (checksum >> 1)).wrapping_add(sector[index as usize] as u32);
             }
         }
-
         self.0 = checksum;
-    }
-
-    pub fn sum(&self) -> u32 {
-        self.0
     }
 }

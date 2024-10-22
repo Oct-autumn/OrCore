@@ -1,7 +1,8 @@
-//! fs/src/ex_fat/persistent_layer/model/cluster_id.rs
+//! fs/src/ex_fat/cluster_chain/model/cluster_id.rs
 //!
 //! 簇ID 兼 FAT表项
 
+#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ClusterId(pub u32);
 
@@ -22,16 +23,18 @@ impl ClusterId {
 
     // 快速判断
     /// 判断表项是否为文件结束标志
-    pub fn is_end_of_file(&self) -> bool {
-        self.0 & 0xFFFFFFFF == 0xFFFFFFFF
-    }
+    pub fn is_eof(&self) -> bool { self.0 == 0xFFFFFFFF }
     /// 判断表项是否为坏簇标志
     pub fn is_bad_cluster(&self) -> bool {
-        self.0 & 0xFFFFFFFF == 0xFFFFFFF7
+        self.0 == 0xFFFFFFF7
     }
     /// 判断表项是否为空闲
     pub fn is_free(&self) -> bool {
-        self.0 & 0xFFFFFFFF == 0x00000000
+        self.0 == 0x00000000
+    }
+    /// 是否为无效簇号
+    pub fn is_invalid(&self) -> bool {
+        self.is_eof() || self.is_bad_cluster() || self.is_free()
     }
 }
 
@@ -44,5 +47,11 @@ impl From<u32> for ClusterId {
 impl From<ClusterId> for u32 {
     fn from(entry: ClusterId) -> Self {
         entry.0
+    }
+}
+
+impl Default for ClusterId {
+    fn default() -> Self {
+        Self::free()
     }
 }

@@ -1,34 +1,27 @@
-use crate::block_cache::get_block_cache;
-use crate::block_dev::BlockDevice;
+use crate::block_device::block_cache::BlockCacheManager;
 use crate::config;
 use alloc::sync::Arc;
+use spin::Mutex;
+use crate::ex_fat::model::cluster_id::ClusterId;
 
 type BitmapBlock = [u64; config::SECTOR_BYTES / size_of::<u64>()]; // 一个位图块
 
 /// 位图
 pub struct Bitmap {
+    /// 位图起始块号
     start_block_id: usize,
+    /// 位图块数
     blocks: usize,
+    /// 缓存管理器
+    block_cache_manager: Arc<Mutex<BlockCacheManager>>,
 }
 
 impl Bitmap {
-    pub fn new(start_block_id: usize, blocks: usize) -> Bitmap {
+    pub fn new(start_block_id: usize, blocks: usize, block_cache_manager: Arc<Mutex<BlockCacheManager>>) -> Bitmap {
         Bitmap {
             start_block_id,
             blocks,
-        }
-    }
-
-    /// 初始化位图
-    /// 
-    /// mut仅用于标记此操作会修改位图内容
-    pub fn init(&mut self, block_device: &Arc<dyn BlockDevice>) {
-        for block_id in 0..self.blocks {
-            get_block_cache(block_id + self.start_block_id, block_device)
-                .write()
-                .modify(0, |data: &mut [u8; config::SECTOR_BYTES]| {
-                    data.fill(0);   // 初始化为0
-                });
+            block_cache_manager,
         }
     }
 
@@ -43,17 +36,18 @@ impl Bitmap {
     }
 
     /// 分配一个bit
+    /// # param
+    /// - hint_cluster_id: 指定从某处开始查找可用簇，若为无效值则从头开始查找
     ///
     /// - 成功则返回bit位置（分配出的bit在位图中的offset）
     /// - 失败则返回None
-    /// 
-    /// mut仅用于标记此操作会修改位图内容
-    pub fn alloc(&mut self, block_device: &Arc<dyn BlockDevice>) -> Option<usize> {
+    pub fn alloc(&self, hint_cluster_id: &ClusterId) -> Option<usize> {
+        // <---- BCM独占区 开始 ---->
+        let mut bcm_guard = self.block_cache_manager.lock();
         // 遍历位图块
         for block_id in 0..self.blocks {
-            let pos = get_block_cache(
-                block_id + self.start_block_id as usize,
-                block_device,
+            if let Some(pos) = bcm_guard.get_block_cache(
+                block_id + self.start_block_id
             )
                 .write()
                 .modify(0, |bitmap_block: &mut BitmapBlock| {
@@ -65,44 +59,58 @@ impl Bitmap {
                     {
                         // 如果找得到，则分配
                         bitmap_block[bits64_pos] |= 1u64 << inner_pos;
-                        Some(block_id * config::SECTOR_BITS + bits64_pos * 64 + inner_pos as usize)
+                        Some(block_id * config::SECTOR_BITS + bits64_pos * 64 + inner_pos)
                     } else {
                         // 找不到则返回None
                         None
                     }
-                });
-            if pos.is_some() {
-                return pos;
+                }) {
+                return Some(pos);
+                // <---- BCM独占区 结束 ---->
             }
         }
-        None
+        panic!("No free bit in bitmap");
     }
 
     /// 释放一个bit
-    /// 
-    /// mut仅用于标记此操作会修改位图内容
-    pub fn free(&mut self, block_device: &Arc<dyn BlockDevice>, bit: usize) {
-        let (block_pos, bits64_pos, inner_pos) = Self::decomposition(bit);
-        get_block_cache(block_pos + self.start_block_id, block_device)
+    pub fn free(&self, bit: usize) {
+        let (block_pos, bits64_pos, inner_pos) = Self::translate_bit_pos(bit);
+        self.block_cache_manager.lock().get_block_cache(block_pos + self.start_block_id)
             .write()
             .modify(0, |bitmap_block: &mut BitmapBlock| {
-                assert!(bitmap_block[bits64_pos] & (1u64 << inner_pos) > 0);
+                assert!(bitmap_block[bits64_pos] & (1u64 << inner_pos) > 0);    // 断言：要释放的bit必须已被分配
                 bitmap_block[bits64_pos] ^= 1u64 << inner_pos;
             });
     }
 
     /// 查询一个bit是否已被分配
-    pub fn is_used(&self, block_device: &Arc<dyn BlockDevice>, bit: usize) -> bool {
-        let (block_pos, bits64_pos, inner_pos) = Self::decomposition(bit);
-        get_block_cache(block_pos + self.start_block_id, block_device)
+    pub fn is_allocated(&self, bit: usize) -> bool {
+        let (block_pos, bits64_pos, inner_pos) = Self::translate_bit_pos(bit);
+        self.block_cache_manager.lock().get_block_cache(block_pos + self.start_block_id)
             .read()
             .read(0, |bitmap_block: &BitmapBlock| {
                 bitmap_block[bits64_pos] & (1u64 << inner_pos) > 0
             })
     }
 
+    /// 获取已分配的bit数
+    pub fn get_allocated_count(&self) -> usize {
+        // <---- BCM独占区 开始 ---->
+        let mut bcm_guard = self.block_cache_manager.lock();
+        let mut count = 0;
+        for block_offset in 0..self.blocks {
+            count += bcm_guard.get_block_cache(block_offset + self.start_block_id)
+                .read()
+                .read(0, |bitmap_block: &BitmapBlock| {
+                    bitmap_block.iter().map(|bits64| bits64.count_ones() as usize).sum::<usize>()
+                });
+        }
+        count
+        // <---- BCM独占区 结束 ---->
+    }
+
     /// 将bit地址转换为块号和块内偏移
-    fn decomposition(mut bit: usize) -> (usize, usize, usize) {
+    fn translate_bit_pos(mut bit: usize) -> (usize, usize, usize) {
         let block_pos = bit & !(config::SECTOR_BITS - 1);
         bit = bit & (config::SECTOR_BITS - 1);
         (block_pos, bit >> 6, bit & 0x3F)

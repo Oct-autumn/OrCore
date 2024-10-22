@@ -1,4 +1,4 @@
-use crate::block_dev::BlockDevice;
+use crate::block_device::BlockDevice;
 use crate::config::SECTOR_BYTES;
 use alloc::sync::Arc;
 
@@ -7,7 +7,7 @@ pub struct BlockCache {
     cache: [u8; SECTOR_BYTES],
     /// 缓存块号
     block_id: usize,
-    /// 缓存的块设备
+    /// 存储设备接口指针
     block_device: Arc<dyn BlockDevice>,
     /// 是否被修改
     modified: bool,

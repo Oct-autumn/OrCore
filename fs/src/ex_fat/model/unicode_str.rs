@@ -1,4 +1,4 @@
-//! fs/src/ex_fat/persistent_layer/model/unicode_str.rs
+//! fs/src/ex_fat/cluster_chain/model/unicode_str.rs
 //! 
 //! Unicode字符串
 
@@ -6,7 +6,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::Debug;
 
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Default, Eq, PartialEq, Clone)]
 pub struct UnicodeString {
     pub data: Vec<u16>,
 }
@@ -20,7 +20,7 @@ impl UnicodeString {
         let mut bytes = Vec::new();
         for &c in &self.data {
             bytes.push((c & 0x00FF) as u8);
-            bytes.push((c & 0xFF00) as u8);
+            bytes.push((c >> 8) as u8);
         }
         bytes
     }

@@ -1,4 +1,4 @@
-use fs::BlockDevice;
+use fs::block_device::BlockDevice;
 
 pub struct VirtIOBlock {
 

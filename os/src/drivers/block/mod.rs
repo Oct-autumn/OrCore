@@ -3,7 +3,7 @@ mod sdcard;
 
 use alloc::sync::Arc;
 use lazy_static::lazy_static;
-use fs::BlockDevice;
+use fs::block_device::BlockDevice;
 use crate::{print, println};
 
 #[cfg(all(feature = "board_qemu", not(feature = "board_k210")))]
